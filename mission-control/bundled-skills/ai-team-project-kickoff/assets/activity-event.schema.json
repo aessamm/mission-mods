@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ops activity event (one per line in .ops/log/activity.jsonl)",
+  "type": "object",
+  "required": ["ts", "actor", "event"],
+  "additionalProperties": false,
+  "properties": {
+    "ts": { "type": "string", "format": "date-time" },
+    "actor": { "type": "string", "enum": ["claude", "codex", "agy", "opencode", "user", "script"] },
+    "ticket": { "type": "string", "pattern": "^M[0-9]+-[0-9]{3}$" },
+    "event": {
+      "type": "string",
+      "enum": [
+        "ticket.created", "ticket.updated", "ticket.status_changed",
+        "run.dispatched", "run.completed", "run.failed", "run.rate_limited",
+        "review.approved", "review.rejected",
+        "commit.landed",
+        "decision.recorded",
+        "blocker.raised", "blocker.resolved",
+        "milestone.reached"
+      ]
+    },
+    "detail": { "type": "string", "maxLength": 300 },
+    "ref": { "type": "string", "description": "path, SHA, decision id or run file" },
+    "from": { "type": "string", "description": "previous status for status_changed" },
+    "to": { "type": "string", "description": "new status for status_changed" }
+  }
+}

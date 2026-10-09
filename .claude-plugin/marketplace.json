@@ -1,0 +1,17 @@
+{
+  "name": "mission-mods",
+  "owner": {
+    "name": "Ahmed Essam Mohamed Elhabiby (@aessamm)",
+    "url": "https://github.com/aessamm"
+  },
+  "metadata": {
+    "description": "Mission Mods: mods for Claude Code that help you lead a team of AI agents."
+  },
+  "plugins": [
+    {
+      "name": "mission-control",
+      "source": "./mission-control",
+      "description": "Your agent team at a glance: live sub-agents, delegations, an .ops ticket board, a daily log, a plan-aware budget and a status line above the prompt."
+    }
+  ]
+}

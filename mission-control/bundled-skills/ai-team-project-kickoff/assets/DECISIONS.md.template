@@ -1,0 +1,25 @@
+# Decisions log
+
+Append-only. Never edit or delete an entry; reverse a decision with a new entry that says
+`Supersedes: D-NNN`. Agents: decisions here are binding — do not re-open them in a ticket.
+
+Format:
+
+```
+## D-001 — <short decision title> (YYYY-MM-DD)
+Context: <why this came up, in 1-3 lines>
+Decision: <what was decided, precisely>
+Alternatives rejected: <option — why not>; <option — why not>
+Decided by: <user / supervisor / both>
+Supersedes: — | D-NNN
+```
+
+---
+
+## D-001 — First milestone is a thin vertical slice (YYYY-MM-DD)
+Context: Requirement docs describe a full platform as "MVP".
+Decision: M0 = <one user type, one integration, one daily-value moment>; foundations kept in
+full (tenancy, audit, deterministic math); portals/registries/secondary agents deferred.
+Alternatives rejected: docs' MVP — 6–12 months before feedback.
+Decided by: both
+Supersedes: —

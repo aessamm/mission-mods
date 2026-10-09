@@ -1,0 +1,68 @@
+{
+ "ai-team-project-kickoff": {
+  "files": [
+   "SKILL.md",
+   "assets/AGENTS.md.template",
+   "assets/DECISIONS.md.template",
+   "assets/TICKET_TEMPLATE.md",
+   "assets/activity-event.schema.json",
+   "references/agent-roles-and-dispatch.md",
+   "references/decision-questions.md",
+   "references/mvp-slicing.md",
+   "references/ops-structure.md",
+   "references/plan-document.md",
+   "references/review-and-delegation.md",
+   "references/skills-strategy.md",
+   "references/ux-gate.md"
+  ],
+  "hash": "3edbcdf8530e"
+ },
+ "codex-delegate": {
+  "files": [
+   "LICENSE",
+   "SKILL.md",
+   "references/dispatch-and-poll.md",
+   "references/multi-task-queues.md",
+   "references/review-and-land.md",
+   "references/writing-the-brief.md",
+   "scripts/relay.mjs"
+  ],
+  "hash": "696fff5d7215"
+ },
+ "agy-delegate": {
+  "files": [
+   "LICENSE",
+   "SKILL.md",
+   "references/dispatch-and-poll.md",
+   "references/multi-task-queues.md",
+   "references/review-and-land.md",
+   "references/writing-the-brief.md",
+   "scripts/relay.mjs"
+  ],
+  "hash": "d70e08f27100"
+ },
+ "opencode-delegate": {
+  "files": [
+   "LICENSE",
+   "SKILL.md",
+   "references/dispatch-and-poll.md",
+   "references/multi-task-queues.md",
+   "references/review-and-land.md",
+   "references/writing-the-brief.md",
+   "scripts/relay.mjs"
+  ],
+  "hash": "b58abbfcaf43"
+ },
+ "claude-delegate": {
+  "files": [
+   "LICENSE",
+   "SKILL.md",
+   "references/dispatch-and-poll.md",
+   "references/multi-task-queues.md",
+   "references/review-and-land.md",
+   "references/writing-the-brief.md",
+   "scripts/relay.mjs"
+  ],
+  "hash": "d06764222f5c"
+ }
+}

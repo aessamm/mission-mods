@@ -1,0 +1,47 @@
+# <Project> — instructions for coding agents
+
+Keep this file under ~150 lines. It is loaded on every run of every agent.
+
+## What this is
+<One paragraph: product, first milestone, primary user.>
+
+## Stack (decided — do not substitute)
+- Web: Next.js (App Router) · API: Fastify + Zod · DB: Postgres (+pgvector) via Drizzle
+- Jobs: BullMQ/Redis · Storage: S3-compatible · Agent runtime: <sdk> behind an adapter
+- Package manager: pnpm · Node <version> · TypeScript strict
+
+## Commands (the only gates that count)
+```
+pnpm install
+pnpm lint        pnpm typecheck      pnpm test
+pnpm dev         pnpm db:migrate     pnpm ops:status
+```
+
+## Read before any ticket
+1. `.ops/memory/DECISIONS.md` — decisions are binding; do not re-decide.
+2. The ticket file under `.ops/tickets/` — scope, AC, gate commands.
+3. Only the skills listed in the ticket's `skills:` frontmatter.
+
+## Ticket type → skills
+| Ticket touches | Load |
+|---|---|
+| DB, repositories, tools with scope | `<p>-tenancy-rules`, `drizzle-orm-patterns` |
+| API routes / plugins | `fastify-best-practices`, `<p>-tenancy-rules` |
+| Metrics / money | `<p>-domain-math`, `vitest` |
+| Agents / tools | `<p>-agent-platform` |
+| UI | `<p>-ux-principles`, `web-design-guidelines`, `nextjs-app-router-patterns` |
+| Tests only | `vitest` (+ `playwright-best-practices` for E2E) |
+| `.ops/` files | `<p>-ops-logging` |
+
+## Hard rules
+- Every tenant-owned table/query/tool carries workspace + tenant scope; never trust an ID
+  supplied by a model or a URL as authorization.
+- No placeholders, `TODO`, stubbed returns or skipped tests in delivered code.
+- No new dependencies without a note in "Implementer notes".
+- Do not commit. Do not expand scope. Leave findings under "Implementer notes".
+- Diff stays under ~400 changed lines; if it can't, stop and say so.
+- Conventions: <link docs/conventions/>. Errors use typed codes; money is integer minor units;
+  timestamps UTC; business periods in tenant timezone.
+
+## Report contract (end of every run)
+Summary · files changed · gates run with output tail · open questions · decisions you made.
