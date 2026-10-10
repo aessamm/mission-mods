@@ -105,16 +105,44 @@ The delegate skills need their own CLIs (`codex`, `agy`, `opencode`, `claude`) a
 
 ## What it does on your machine
 
-- Reads the session's git state (`git status`, `git log -1`, `git stash list`) for the
-  status line every 15 seconds, `git diff --shortstat` for running delegations, and the
-  branch's commits when you run `/ship`.
-- Reads `.ops/` in the current repository, the delegate relays' `result.json` files in your
-  temp folder, and Claude Code's plugin records (to show what is installed in Info).
-- Copies the companion skills as described above.
-- Adds a `step` tool that sub-agents can call to report real progress.
-- With the budget on, can stop a new sub-agent from starting and says why.
-- Never merges, pushes or opens a pull request. Buttons for those put the request in the
-  prompt, and nothing happens until you send it.
+Everything Mission Control does runs locally, inside Claude Code.
+
+**Commands it runs.** Only `git`, and only to read:
+- For the status line, every 15 seconds: `git status --porcelain=v2 --branch`,
+  `git rev-parse --git-dir --git-common-dir`, `git stash list` and `git log -1`.
+- For a running delegation: the branch when it starts, then `git diff --shortstat` every 20
+  seconds in the delegation's folder.
+- On `/ship`: the branch, the commits since the base branch and their diff summary.
+
+**Files it reads.**
+- `.ops/` in the current repository (tickets, activity log, decisions, run stats) for Board,
+  and `.md`/`.yml` files under it for `/ship`.
+- The delegate relays' `result.json` files in your temp folder (`delegate-relay` folders) and
+  the brief files you hand them.
+- Claude Code's plugin records in `~/.claude` (`settings.json`,
+  `plugins/installed_plugins.json`, `plugins/known_marketplaces.json` and the marketplaces'
+  `marketplace.json`), to show which Mission Mods are installed and enabled in Info. It reads
+  nothing else from those files.
+
+**Files it writes.** Only the companion skills: when a session starts it copies any of the
+five skills that are missing into `~/.claude/skills` (or `$CLAUDE_CONFIG_DIR/skills`), with a
+small `.mission-control.json` marker in each folder it created. A skill folder you already
+have is never touched. Turn this off in **Settings › Panel › Install companion skills**.
+Its own settings, the day log, handoff notes and spend counters are kept in Claude Code's
+plugin store, not in your repository.
+
+**What it adds to Claude Code.**
+- A `step` tool that sub-agents can call to report real progress. It only updates the panel.
+- With the budget on, it can stop a new sub-agent from starting, and says why. It never
+  stops an agent that is already running unless you press Stop.
+- `/standup`, `/handoff` and `/ship` ask the session's model to write their text, through
+  Claude Code's own connection, like any other prompt.
+
+**Network.** Mission Control itself sends nothing over the network: no telemetry, no
+analytics, no calls to any server. The only model calls are the three commands above.
+
+**What it never does.** It never merges, pushes or opens a pull request. Buttons for those
+put the request in the prompt, and nothing happens until you send it.
 
 ## Troubleshooting
 

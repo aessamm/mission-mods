@@ -1,6 +1,6 @@
 {
   "name": "mission-control",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Mission Control: your agent team at a glance. Live sub-agents with pixel-crab characters, delegations to Codex, agy, OpenCode and Claude, an .ops ticket board, a daily log with /standup and /ship, a plan-aware budget, and a status line above the prompt.",
   "author": {
     "name": "Ahmed Essam Mohamed Elhabiby (@aessamm)",
