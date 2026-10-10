@@ -8,6 +8,8 @@
   },
   "homepage": "https://github.com/aessamm/mission-mods",
   "repository": "https://github.com/aessamm/mission-mods",
+  "supportUrl": "https://github.com/aessamm/mission-mods/issues",
+  "documentationUrl": "https://github.com/aessamm/mission-mods/tree/main/mission-control#readme",
   "license": "MIT",
   "keywords": [
     "agents",
