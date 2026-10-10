@@ -15,10 +15,11 @@ const skills = atom({ plugin: 'mission-control', key: 'skills' } as const, null 
 
 const MARK = '.mission-control.json'
 type Manifest = Record<string, { files: string[]; hash: string }>
+type Mark = { hash?: string }
 
-async function readMark($: EngineInterface, dir: string): Promise<{ hash?: string } | null> {
+async function readMark($: EngineInterface, dir: string): Promise<Mark | null> {
   try {
-    return JSON.parse(String(await $.fs.read(`${dir}/${MARK}`))) as { hash?: string }
+    return JSON.parse(String(await $.fs.read(`${dir}/${MARK}`))) as Mark
   } catch {
     return null
   }
@@ -42,7 +43,7 @@ async function syncSkills($: EngineInterface): Promise<void> {
   for (const [name, m] of Object.entries(manifest)) {
     const dir = `${claudeDir}/skills/${name}`
     const has = await $.fs.exists(`${dir}/SKILL.md`).catch(() => false)
-    let mark: { hash?: string } | null = null
+    let mark: Mark | null = null
     if (has) mark = await readMark($, dir)
     if (has && !mark) { out.push({ name, state: 'yours', where: dir }); continue }
     if (has && mark?.hash === m.hash) { out.push({ name, state: 'mod', where: dir }); continue }
