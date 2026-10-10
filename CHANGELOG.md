@@ -1,5 +1,14 @@
 # Changelog
 
+## mission-control 0.9.2 — ready for the Claude directory
+
+- The plugin's own README now covers what it does, setup, commands, and everything it does
+  on your machine: the programs it runs, the agents and tools it starts and when, what each
+  hook changes, and the files it reads and writes.
+- A listing icon (`.claude-plugin/icon.png`).
+- Code tidy-ups the directory's checks asked for: no variable named `h` in the JSX files, and
+  the byte-order-mark regex written as an escape.
+
 ## mission-control 0.9.1 — easier install, every system
 
 - One-line installers for the Claude desktop app: `install/install.ps1` (Windows) and

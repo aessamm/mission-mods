@@ -136,13 +136,13 @@ export const holderOf = (assignee: string | undefined): string | undefined => {
 }
 const HOLDER_NAME: Record<string, string> = { codex: 'Codex', agy: 'agy', opencode: 'OpenCode', claude: 'Claude' }
 const HOLDER_COLOR: Record<string, string> = { codex: '#1f1f1f', agy: '#378add', opencode: '#ba7517', claude: '#d97757' }
-export const holderName = (h: string) => HOLDER_NAME[h] ?? h
+export const holderName = (who: string) => HOLDER_NAME[who] ?? who
 
 export type BoardFilter = 'all' | 'mine' | 'agents' | 'blocked'
 export function filterTickets(list: Ticket[], f: BoardFilter): Ticket[] {
   if (f === 'blocked') return list.filter(t => t.status === 'blocked')
   if (f === 'mine') return list.filter(t => holderOf(t.assignee) === 'claude')
-  if (f === 'agents') return list.filter(t => { const h = holderOf(t.assignee); return !!h && h !== 'claude' })
+  if (f === 'agents') return list.filter(t => { const who = holderOf(t.assignee); return !!who && who !== 'claude' })
   return list
 }
 
@@ -265,9 +265,9 @@ function metaSvg(t: Ticket, byId: Map<string, Ticket>, x: number, y: number, max
 }
 const logRows = (act: ActivityEvent[]) => Math.max(1, Math.min(8, act.length))
 
-function badgeSvg(right: number, y: number, h: string) {
-  const name = holderName(h), w = textWidth(name, 10.5) + 12, x = right - w
-  const color = HOLDER_COLOR[h] ?? '#6b6b68'
+function badgeSvg(right: number, y: number, who: string) {
+  const name = holderName(who), w = textWidth(name, 10.5) + 12, x = right - w
+  const color = HOLDER_COLOR[who] ?? '#6b6b68'
   return { w, svg: `<rect x="${x}" y="${y}" width="${w}" height="16" rx="2" style="fill:${color};opacity:.18"/>${text(x + 6, y + 11.5, name, { size: 10.5, weight: 600 })}` }
 }
 
@@ -300,8 +300,8 @@ function sectionSvg(W: number, title: string, list: Ticket[], tone: 'plain' | 'b
   const H = sectionH(list)
   let y = 26
   const rows = list.map((t, i) => {
-    const h = holderOf(t.assignee)
-    const b = h ? badgeSvg(W - 8, y + 6, h) : undefined
+    const who = holderOf(t.assignee)
+    const b = who ? badgeSvg(W - 8, y + 6, who) : undefined
     const right = b ? b.w + 14 : 28
     const rh = rowH(t)
     const out = `${text(8, y + 18, t.id, { size: 11, cls: 's', mono: true })}${text(72, y + 18, t.title, { size: 12.5, max: W - 72 - right })}${b ? b.svg : text(W - 10, y + 18, '—', { size: 12, cls: 'm', anchor: 'end' })}${hasMeta(t) ? metaSvg(t, byId, 72, y + 35, W - 72 - 10) : ''}${i < list.length - 1 ? hline(8, W - 8, y + rh - 1) : ''}`

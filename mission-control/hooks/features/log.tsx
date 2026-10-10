@@ -69,8 +69,8 @@ const HEADS = ['Done', 'Doing', 'Blocked', 'Next'] as const
 export function parseSections(src: string): CommandDoc['sections'] {
   const out: CommandDoc['sections'] = []
   for (const line of src.split(/\r?\n/)) {
-    const h = HEADS.find(x => new RegExp(`^[#*\\s]*${x}\\b[:*\\s]*$`, 'i').test(line.trim()))
-    if (h) { out.push({ heading: h, lines: [] }); continue }
+    const head = HEADS.find(x => new RegExp(`^[#*\\s]*${x}\\b[:*\\s]*$`, 'i').test(line.trim()))
+    if (head) { out.push({ heading: head, lines: [] }); continue }
     const t = line.replace(/^[\s>*\-•]+/, '').trim()
     if (t && out.length) out[out.length - 1]!.lines.push(t)
   }
@@ -158,9 +158,9 @@ async function runHandoff($: EngineInterface, note: string): Promise<string> {
       : undefined
     body = reply ?? fallback
   }
-  const h: Handoff = { project, at, text: body }
-  await $.store.set(STORE.handoff(project), h)
-  await update($, handoff, () => h)
+  const handoffNote: Handoff = { project, at, text: body }
+  await $.store.set(STORE.handoff(project), handoffNote)
+  await update($, handoff, () => handoffNote)
   return `Handoff saved for ${project}.\n${body}`
 }
 
@@ -184,13 +184,13 @@ export function registerLog(on: On): void {
     await $.command.register({ name: 'standup', description: 'Today across every project: done, doing, blocked, next' }).catch(() => undefined)
     await $.command.register({ name: 'handoff', description: 'Write the note the next session starts from', argumentHint: '[note]' }).catch(() => undefined)
     await record($, { kind: 'session', text: 'Session started' }).catch(() => undefined)
-    const h = await $.store.get(STORE.handoff(await projectOf($))).catch(() => null)
-    if (h) await update($, handoff, () => h as Handoff)
+    const saved = await $.store.get(STORE.handoff(await projectOf($))).catch(() => null)
+    if (saved) await update($, handoff, () => saved as Handoff)
     return started
   })
 
   on('command.run', { command: 'standup' }, async ($) => ({ text: await runStandup($) }))
-  on('command.run', { command: 'handoff' }, async ($, e) => ({ text: await runHandoff($, e.args) }))
+  on('command.run', { command: 'handoff' }, async ($, cmd) => ({ text: await runHandoff($, cmd.args) }))
 
   on('ui.render', { component: 'Pane', requestId: 'mission-control' }, async ($, e, next) => {
     const p = { ...DEFAULT_PANEL, ...(await read($, panel)) }

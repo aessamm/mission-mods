@@ -58,12 +58,12 @@ function worksSvg(W: number, list: CompanionSkill[] | null): { H: number; body: 
     const what = para(0, y + 38, w.what, W, { size: 12, cls: 's', lh: 16 })
     const runY = y + 38 + what.h + 4
     const run = para(0, runY, `Run: ${w.run} · shows in ${w.tab}`, W, { size: 11.5, lh: 15 })
-    const h = runY - y + run.h + 8
+    const rowH = runY - y + run.h + 8
     const out = text(0, y + 18, w.name, { size: 12, weight: 700, mono: true, max: W - cw - 12 })
       + `<rect x="${W - cw}" y="${y + 6}" width="${cw}" height="17" rx="2" style="fill:${st.color};opacity:.16"/>`
       + text(W - cw + 7, y + 18, st.word, { size: 10.5, weight: 600, fill: st.color })
-      + what.svg + run.svg + (i < WORKS_WITH.length - 1 ? hline(0, W, y + h - 1) : '')
-    y += h
+      + what.svg + run.svg + (i < WORKS_WITH.length - 1 ? hline(0, W, y + rowH - 1) : '')
+    y += rowH
     return out
   }).join('')
   return { H: y, body }
@@ -97,9 +97,9 @@ function tableSvg(W: number, rows: [string, string][], keyW: number): { H: numbe
   let y = 0
   const body = rows.map(([k, desc]) => {
     const p = para(keyW, y + 17, desc, W - keyW, { size: 12, cls: 's', lh: 16 })
-    const h = Math.max(26, p.h + 10)
-    const out = text(0, y + 17, k, { size: 11.5, weight: 600, mono: true, max: keyW - 8 }) + p.svg + hline(0, W, y + h - 1)
-    y += h
+    const rowH = Math.max(26, p.h + 10)
+    const out = text(0, y + 17, k, { size: 11.5, weight: 600, mono: true, max: keyW - 8 }) + p.svg + hline(0, W, y + rowH - 1)
+    y += rowH
     return out
   }).join('')
   return { H: y, body }

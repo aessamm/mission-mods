@@ -10,7 +10,7 @@ one before pasting it into the form.
 | Repository | `aessamm/mission-mods` (https://github.com/aessamm/mission-mods) |
 | Plugin path | `mission-control` |
 | Branch | `main` |
-| Version | 0.9.1 |
+| Version | 0.9.2 |
 | Licence | MIT |
 | Author | Ahmed Essam Mohamed Elhabiby (@aessamm) |
 
@@ -79,7 +79,7 @@ when the user runs them; the plugin itself never does.
 - [ ] `claude plugin validate mission-control` passes.
 - [ ] `claude plugin validate .` passes (marketplace).
 - [ ] `claude plugin test mission-control` passes.
-- [ ] `plugin.json` version matches the CHANGELOG (0.9.1) and the tag to be released.
+- [ ] `plugin.json` version matches the CHANGELOG (0.9.2) and the tag to be released.
 - [ ] README "What it does on your machine" matches the code (commands, files read and
       written, network).
 - [ ] LICENSE and THIRD_PARTY_NOTICES.md are present and current (Lucide ISC,
