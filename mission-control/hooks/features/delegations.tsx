@@ -10,6 +10,8 @@ import { emptyState } from '../kit/ui'
 import { activeTab, badgesFrom, clip, tabBar } from '../kit/chrome'
 import { barText, box, chip, estText, iconInk, label, outline, progress, statusWord, svg, text, textWidth, wide } from '../kit/draw'
 import { fmtSpan, fmtTime } from '../kit/role'
+import { expandHome, homeOf, isWindowsHome, tmpOf } from '../kit/paths'
+import type { HomeEnv } from '../kit/paths'
 import { DEFAULT_PANEL, DEFAULT_SETTINGS, localDay, makeCtx, settingsOf } from '../kit/state'
 import type { PaneInput } from '../kit/state'
 import type { TabCtx } from '../kit/state'
@@ -191,9 +193,17 @@ async function patch($: EngineInterface, id: string, change: Partial<Delegation>
   await update($, delegations, m => (m[id] ? { ...m, [id]: { ...m[id], ...change } } : m))
 }
 
-async function readBrief($: EngineInterface, brief: string | undefined, cd: string): Promise<string> {
+// The environment's home folder (see kit/paths.ts for the rules on each system).
+async function homeEnv($: EngineInterface): Promise<HomeEnv> {
+  const get = (v: Promise<string | undefined>) => v.catch(() => undefined)
+  return { userProfile: await get($.env.get('USERPROFILE')), home: await get($.env.get('HOME')), configDir: await get($.env.get('CLAUDE_CONFIG_DIR')) }
+}
+
+async function readBrief($: EngineInterface, brief: string | undefined, cd: string, home: string): Promise<string> {
   if (!brief) return ''
-  for (const p of isAbs(brief) ? [brief] : [joinPath(cd, brief), brief]) {
+  // "~/brief.md" means the home folder; nothing else would expand it.
+  const path = expandHome(brief, home)
+  for (const p of isAbs(path) ? [path] : [joinPath(cd, path), path]) {
     try {
       const t = await $.fs.read(p)
       if (typeof t === 'string' && t.trim()) return t
@@ -221,10 +231,15 @@ async function record($: EngineInterface, command: unknown, toolUseId: unknown):
   const root = await rootOf($)
   const id = str(toolUseId) || `d-${at}`
   if ((await read($, delegations))[id]) return
+  const home = homeOf(await homeEnv($))
   const isWin = /^[A-Za-z]:/.test(root)
-  const fix = (p: string): string => (isWin ? p.replace(/^\/([A-Za-z])\//, '$1:/') : p)
+  // Git Bash spells C:\x as /c/x; on Windows turn it back. "~" is the home folder everywhere.
+  const fix = (p: string): string => {
+    const q = expandHome(p, home)
+    return isWin ? q.replace(/^\/([A-Za-z])\//, '$1:/') : q
+  }
   const cwd = fix(call.cd ?? root)
-  const brief = (await readBrief($, call.brief ? fix(call.brief) : undefined, cwd)) || call.heredoc || ''
+  const brief = (await readBrief($, call.brief ? fix(call.brief) : undefined, cwd, home)) || call.heredoc || ''
   const out = call.outDir ? fix(call.outDir) : undefined
   const resultPath = out ? joinPath(isAbs(out) ? out : joinPath(root, out), 'result.json') : undefined
   const d: Delegation = {
@@ -244,8 +259,9 @@ async function findResult($: EngineInterface, d: Delegation, claimed: Set<string
   try {
     if (!tmpBase) {
       // Where Node's os.tmpdir() points, which is where the relays write by default.
-      const t = (await $.env.get('TMPDIR')) || (await $.env.get('TEMP')) || (await $.env.get('TMP')) || '/tmp'
-      tmpBase = t.replace(/\\/g, '/').replace(/\/+$/, '')
+      const get = (v: Promise<string | undefined>) => v.catch(() => undefined)
+      const windows = isWindowsHome(homeOf(await homeEnv($)))
+      tmpBase = tmpOf(windows, { tmpdir: await get($.env.get('TMPDIR')), temp: await get($.env.get('TEMP')), tmp: await get($.env.get('TMP')) })
     }
     if (!tmpBase) return undefined
     const dir = joinPath(tmpBase, 'delegate-relay')

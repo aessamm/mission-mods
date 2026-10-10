@@ -37,10 +37,18 @@ test('result.json of any shape maps to a status without throwing', async () => {
   expect(promptFor('review', base)).toBe('Review the diff from agy on fix/rtl-header in C:/w/portal and tell me if it is ready to merge.')
 })
 
+// The engine may hand fs hooks an absolute path in its own spelling: "/w/portal/x" can arrive
+// as "D:/w/portal/x" on Windows, or resolved against the working folder elsewhere. Matching
+// on the end of the normalised path keeps these tests the same on Windows, macOS and Linux.
+const norm = (p: string) => p.split(String.fromCharCode(92)).join('/')
+const lookup = (files: Record<string, string>, path: string) => {
+  const key = Object.keys(files).find(k => norm(path).endsWith(k))
+  return key === undefined ? undefined : files[key]
+}
+
 test('a relay command is tracked to its result.json and the tab shows it on both surfaces', async ($, on) => {
-  const norm = (p: string) => p.split(String.fromCharCode(92)).join('/')
   const clock = mock.clock(on, { now: 1000 })
-  const root = 'C:/w/portal'
+  const root = '/w/portal'
   const files: Record<string, string> = { [root + '/brief.txt']: 'M0-007 Implement the budget band' + String.fromCharCode(10) + 'Details' }
   on('tool.call', () => ({ result: 'ok' as never, text: 'ok' }))
   on('session.start', () => ({ cwd: root }))
@@ -48,8 +56,8 @@ test('a relay command is tracked to its result.json and the tab shows it on both
   on('tool.register', () => ({ value: undefined as never }))
   on('session.root', () => ({ value: root }))
   on('session.repo', () => ({ value: null }))
-  on('fs.read', (_$, e) => (files[norm(e.path)] === undefined ? { deny: 'ENOENT' } : { value: files[norm(e.path)] as string }))
-  on('fs.stat', (_$, e) => (files[norm(e.path)] === undefined ? { deny: 'ENOENT' } : { value: { kind: 'file' as const, size: 1, mtimeMs: 5000, isLink: false } }))
+  on('fs.read', (_$, e) => (lookup(files, e.path) === undefined ? { deny: 'ENOENT' } : { value: lookup(files, e.path) as string }))
+  on('fs.stat', (_$, e) => (lookup(files, e.path) === undefined ? { deny: 'ENOENT' } : { value: { kind: 'file' as const, size: 1, mtimeMs: 5000, isLink: false } }))
   on('process.run', () => ({ value: { exitCode: 0, stdout: ' 3 files changed, 24 insertions(+), 24 deletions(-)', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
   await $.tool.call({ tool: 'Bash', tool_use_id: 'tu1', command: 'node /s/agy-delegate/scripts/relay.mjs --brief brief.txt --cd ' + root + ' --out-dir ' + root + '/out' } as never)
   const open = async (surface: 'terminal' | 'desktop') => {
@@ -82,4 +90,23 @@ test('an empty Delegations tab says nothing is delegated', async ($, on) => {
     expect(JSON.stringify(await ui.drawn()).includes('Nothing delegated')).toBe(true)
     await ui.unmount()
   }
+})
+
+test('a brief given as ~/… is read from the home folder', async ($, on) => {
+  mock.clock(on, { now: 1000 })
+  mock.env(on, { HOME: '/home/dev' })
+  const files: Record<string, string> = { '/home/dev/briefs/m0-009.md': 'M0-009 Tidy the README' }
+  on('tool.call', () => ({ result: 'ok' as never, text: 'ok' }))
+  on('command.register', (_$, e) => ({ value: { command: e.name } }))
+  on('tool.register', () => ({ value: undefined as never }))
+  on('session.root', () => ({ value: '/w/portal' }))
+  on('session.repo', () => ({ value: null }))
+  on('fs.read', (_$, e) => (lookup(files, e.path) === undefined ? { deny: 'ENOENT' } : { value: lookup(files, e.path) as string }))
+  on('fs.stat', () => ({ deny: 'ENOENT' }))
+  on('process.run', () => ({ value: { exitCode: 1, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
+  await $.tool.call({ tool: 'Bash', tool_use_id: 'tu9', command: 'node ~/.claude/skills/codex-delegate/scripts/relay.mjs --brief ~/briefs/m0-009.md --cd /w/portal' } as never)
+  const ui = await $.ui.mount({ plugin: 'mission-control', surface: 'terminal', ...PANE })
+  await ui.press({ key: 'tab-delegations' })
+  expect(JSON.stringify(await ui.drawn())).toContain('Tidy the README')
+  await ui.unmount()
 })

@@ -8,6 +8,8 @@ import type { EngineInterface, On } from 'claude-code'
 
 import type { CompanionSkill, Settings } from '../../types'
 import { STORE } from '../kit/state'
+import { claudeDirOf } from '../kit/paths'
+import type { HomeEnv } from '../kit/paths'
 
 const skills = atom({ plugin: 'mission-control', key: 'skills' } as const, null as CompanionSkill[] | null)
 
@@ -22,9 +24,10 @@ async function readMark($: EngineInterface, dir: string): Promise<{ hash?: strin
   }
 }
 
-// The home folder, the way Node's os.homedir() finds it, without running anything.
-async function homeDir($: EngineInterface): Promise<string> {
-  return ((await $.env.get('USERPROFILE')) || (await $.env.get('HOME')) || '').replace(/\\/g, '/').replace(/\/+$/, '')
+// The environment's home folder (see kit/paths.ts for the rules on each system).
+async function homeEnv($: EngineInterface): Promise<HomeEnv> {
+  const get = (v: Promise<string | undefined>) => v.catch(() => undefined)
+  return { userProfile: await get($.env.get('USERPROFILE')), home: await get($.env.get('HOME')), configDir: await get($.env.get('CLAUDE_CONFIG_DIR')) }
 }
 
 async function syncSkills($: EngineInterface): Promise<void> {
@@ -32,12 +35,12 @@ async function syncSkills($: EngineInterface): Promise<void> {
   if (saved?.show?.skills === false) return
   const root = $.plugin.root.replace(/\\/g, '/')
   const manifest = JSON.parse(String(await $.fs.read(`${root}/bundled-skills/manifest.json`))) as Manifest
-  const home = await homeDir($)
-  if (!home) return
+  const claudeDir = claudeDirOf(await homeEnv($))
+  if (!claudeDir) return
   const out: CompanionSkill[] = []
   const added: string[] = []
   for (const [name, m] of Object.entries(manifest)) {
-    const dir = `${home}/.claude/skills/${name}`
+    const dir = `${claudeDir}/skills/${name}`
     const has = await $.fs.exists(`${dir}/SKILL.md`).catch(() => false)
     const mark = has ? await readMark($, dir) : null
     if (has && !mark) { out.push({ name, state: 'yours', where: dir }); continue }

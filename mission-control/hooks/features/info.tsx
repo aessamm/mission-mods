@@ -15,6 +15,8 @@ import type { PaneInput } from '../kit/state'
 import type { TabCtx, UiTable } from '../kit/state'
 import { DEFAULT_PANEL, DEFAULT_SETTINGS, makeCtx, settingsOf } from '../kit/state'
 import { section } from '../kit/ui'
+import { claudeDirOf } from '../kit/paths'
+import type { HomeEnv } from '../kit/paths'
 
 const agents = atom({ plugin: 'mission-control', key: 'agents' } as const, {} as Record<string, AgentRecord>)
 const board = atom({ plugin: 'mission-control', key: 'board' } as const, null as BoardSnapshot | null)
@@ -73,16 +75,16 @@ async function readJson($: EngineInterface, path: string): Promise<Record<string
   }
 }
 
-// The home folder, the way Node's os.homedir() finds it, without running anything.
-async function homeDir($: EngineInterface): Promise<string> {
-  return ((await $.env.get('USERPROFILE')) || (await $.env.get('HOME')) || '').replace(/\\/g, '/').replace(/\/+$/, '')
+// The environment's home folder (see kit/paths.ts for the rules on each system).
+async function homeEnv($: EngineInterface): Promise<HomeEnv> {
+  const get = (v: Promise<string | undefined>) => v.catch(() => undefined)
+  return { userProfile: await get($.env.get('USERPROFILE')), home: await get($.env.get('HOME')), configDir: await get($.env.get('CLAUDE_CONFIG_DIR')) }
 }
 
 // Reads Claude Code's plugin records; quick enough for session start and opening Info.
 async function scanFamily($: EngineInterface): Promise<void> {
-  const home = await homeDir($).catch(() => '')
-  if (!home) return
-  const dir = `${home}/.claude`
+  const dir = claudeDirOf(await homeEnv($))
+  if (!dir) return
   const installedFile = await readJson($, `${dir}/plugins/installed_plugins.json`)
   const settingsFile = await readJson($, `${dir}/settings.json`)
   const markets = await readJson($, `${dir}/plugins/known_marketplaces.json`)
