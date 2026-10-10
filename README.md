@@ -22,18 +22,60 @@ Your agent team at a glance, in a side panel and a status line above the prompt.
 
 ## Install
 
-In a Claude Code terminal session:
+Pick the one that matches how you use Claude Code. You run these yourself; Claude can't
+change its own settings file for you.
+
+**Claude desktop app, Windows.** Open PowerShell and run:
+
+```powershell
+irm https://raw.githubusercontent.com/aessamm/mission-mods/main/install/install.ps1 | iex
+```
+
+**Claude desktop app, macOS or Linux.** Open a terminal and run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/aessamm/mission-mods/main/install/install.sh | bash
+```
+
+Both scripts add the Mission Mods marketplace and turn on Mission Control in your Claude
+settings file (`~/.claude/settings.json`, or the folder `CLAUDE_CONFIG_DIR` points to). They
+back the file up first, keep everything else in it, and change nothing if you run them
+again. Then quit the Claude desktop app completely, open it again, start a new session in
+the Code tab and type `/mission`.
+
+**Terminal (Claude Code CLI).** In a Claude Code session running in a terminal:
 
 ```
 /plugin install mission-control --marketplace aessamm/mission-mods
 ```
 
-Answer `y` to add the marketplace, choose a scope, and the panel opens. Open it again any
-time with `/mission`.
+This command only works in a terminal session; the desktop app's Code tab doesn't accept it.
+Answer `y` to add the marketplace and choose the **user** scope, so Mission Control also
+loads in the desktop app. Open the panel any time with `/mission`.
 
 **Requirements:** Claude Code 2.1.293 or newer (mods with hooks modules). It draws its full
 look in the desktop app's Code tab and a text version in the terminal. Built and tested on
 Windows; macOS and Linux should work but have not been tested yet.
+
+### Manual install
+
+If you'd rather edit the file yourself, open `~/.claude/settings.json` (on Windows,
+`%USERPROFILE%\.claude\settings.json`) and add these two entries inside the outer `{ }`:
+
+```json
+"extraKnownMarketplaces": {
+  "mission-mods": { "source": { "source": "github", "repo": "aessamm/mission-mods" } }
+},
+"enabledPlugins": {
+  "mission-control@mission-mods": true
+}
+```
+
+- Put a comma after the entry that comes before them, or the file stops being valid JSON.
+- If the file already has an `enabledPlugins` (or `extraKnownMarketplaces`) section, add the
+  line inside that section instead of adding a second one.
+
+Save, quit the Claude desktop app completely and open it again.
 
 ## Commands
 
@@ -73,6 +115,25 @@ The delegate skills need their own CLIs (`codex`, `agy`, `opencode`, `claude`) a
 - With the budget on, can stop a new sub-agent from starting and says why.
 - Never merges, pushes or opens a pull request. Buttons for those put the request in the
   prompt, and nothing happens until you send it.
+
+## Troubleshooting
+
+**"This command isn't available" in the desktop app.** `/plugin install` only runs in a
+terminal session. In the desktop app, use the installer for your system above.
+
+**Mission Control isn't in Plugins › Discover.** It isn't in the official plugin directory
+yet. Install it with one of the options above instead.
+
+**"Claude Code … is older than 2.1.293".** Update the Claude desktop app (or run
+`claude update` for the CLI), then open it again.
+
+**`/mission` does nothing.**
+1. Quit the Claude desktop app completely, including from the system tray or menu bar,
+   open it again and start a new session. Settings are only read when the app starts.
+2. If you have the CLI, run `claude plugin list` and check that `mission-control@mission-mods`
+   is listed as enabled.
+3. Check that your settings file has both entries from [Manual install](#manual-install), and
+   that the file is valid JSON.
 
 ## Licence
 
