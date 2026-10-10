@@ -46,7 +46,7 @@ const unquote = (v: string): string => {
 // The `key: value` lines between the first two `---` lines. No YAML library: lists and
 // nested values stay as their raw text, which is all the board needs.
 export function parseFrontmatter(src: string): { data: Record<string, string>; body: string } {
-  const lines = src.replace(/^﻿/, '').split(/\r?\n/)
+  const lines = src.replace(/^\uFEFF/, '').split(/\r?\n/)
   if (lines[0]?.trim() !== '---') return { data: {}, body: src }
   const end = lines.findIndex((l, i) => i > 0 && l.trim() === '---')
   if (end < 0) return { data: {}, body: src }

@@ -30,7 +30,7 @@ const unquote = (s: string) => s.trim().replace(/^(['"])(.*)\1$/, '$2').trim()
 
 // Reads `key: value` lines between the first two `---` lines.
 export function parseFrontmatter(src: string): Record<string, string> {
-  const lines = src.replace(/^﻿/, '').split(/\r?\n/)
+  const lines = src.replace(/^\uFEFF/, '').split(/\r?\n/)
   if (lines[0]?.trim() !== '---') return {}
   const out: Record<string, string> = {}
   for (const line of lines.slice(1)) {
