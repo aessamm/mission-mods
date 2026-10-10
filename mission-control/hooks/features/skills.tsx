@@ -42,7 +42,8 @@ async function syncSkills($: EngineInterface): Promise<void> {
   for (const [name, m] of Object.entries(manifest)) {
     const dir = `${claudeDir}/skills/${name}`
     const has = await $.fs.exists(`${dir}/SKILL.md`).catch(() => false)
-    const mark = has ? await readMark($, dir) : null
+    let mark: { hash?: string } | null = null
+    if (has) mark = await readMark($, dir)
     if (has && !mark) { out.push({ name, state: 'yours', where: dir }); continue }
     if (has && mark?.hash === m.hash) { out.push({ name, state: 'mod', where: dir }); continue }
     try {
