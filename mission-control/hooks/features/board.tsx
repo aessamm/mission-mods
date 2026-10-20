@@ -7,6 +7,7 @@ import type { EngineInterface, On, RenderElement } from 'claude-code'
 
 import type { ActivityEvent, AgentRecord, AgentRunStats, BoardSnapshot, DecisionNote, Delegation, Settings, Ticket, TicketStatus } from '../../types'
 import { fmtSpan } from '../kit/role'
+import { mainCheckoutOf } from '../kit/paths'
 import { emptyState } from '../kit/ui'
 import { activeTab, badgesFrom, clip, tabBar } from '../kit/chrome'
 import { barText, box, hline, iconInk, progress, svg, text, textWidth, wide } from '../kit/draw'
@@ -176,8 +177,25 @@ async function walk($: EngineInterface, dir: string, out: string[], depth: numbe
   }
 }
 
+// Where .ops lives: the main checkout when the session runs in a linked worktree and the
+// main checkout has one (hooks and run logs write there), else the session's own root.
+const opsRoots = new Map<string, string>()
+async function opsRootOf($: EngineInterface, root: string): Promise<string> {
+  const known = opsRoots.get(root)
+  if (known) return known
+  let at = root
+  try {
+    const r = await $.process.run(['git', '-C', root, 'rev-parse', '--path-format=absolute', '--git-common-dir'], { timeoutMs: 5000 })
+    const main = r.exitCode === 0 ? mainCheckoutOf(r.stdout) : ''
+    if (main && main.toLowerCase() !== root.toLowerCase() && (await $.fs.exists(`${main}/.ops`).catch(() => false))) at = main
+  } catch { /* no git: the session's own root */ }
+  opsRoots.set(root, at)
+  return at
+}
+
 async function loadBoard($: EngineInterface): Promise<void> {
-  const root = ((await $.session.repo().catch(() => null))?.root ?? (await $.session.cwd())).replace(/\\/g, '/')
+  const here = ((await $.session.repo().catch(() => null))?.root ?? (await $.session.cwd())).replace(/\\/g, '/')
+  const root = await opsRootOf($, here)
   const dir = `${root}/.ops/tickets`
   if (!(await $.fs.exists(dir).catch(() => false))) {
     if ((await read($, board)) !== null) await update($, board, () => null)

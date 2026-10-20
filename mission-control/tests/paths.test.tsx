@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { claudeDirOf, expandHome, homeOf, isWindowsHome, tmpOf } from '../hooks/kit/paths'
+import { claudeDirOf, expandHome, homeOf, isWindowsHome, mainCheckoutOf, parentOf, tmpOf } from '../hooks/kit/paths'
 
 test('the home folder is USERPROFILE on Windows and HOME elsewhere', () => {
   expect(homeOf({ userProfile: 'C:\\Users\\dev', home: '/c/Users/dev' })).toBe('C:/Users/dev')
@@ -28,4 +28,13 @@ test('~ expands to the home folder', () => {
   expect(expandHome('~', '/home/dev')).toBe('/home/dev')
   expect(expandHome('/abs/a.md', '/home/dev')).toBe('/abs/a.md')
   expect(expandHome('~/a.md', '')).toBe('~/a.md')
+})
+
+test('the main checkout is the folder holding the common .git dir', () => {
+  expect(mainCheckoutOf('D:/w/app/.git\n')).toBe('D:/w/app')
+  expect(mainCheckoutOf('C:\\w\\app\\.git')).toBe('C:/w/app')
+  expect(mainCheckoutOf('/srv/app.git')).toBe('')
+  expect(mainCheckoutOf('')).toBe('')
+  expect(parentOf('D:/w/app/')).toBe('D:/w')
+  expect(parentOf('/app')).toBe('')
 })
