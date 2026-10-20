@@ -75,6 +75,16 @@ The helper defaults to a write-capable (`workspace-write`) sandbox and writes it
 dir, so the repo under review stays clean. It **never commits** — see step 5. Mechanics, flags, and the
 `result.json` shape: [references/dispatch-and-poll.md](references/dispatch-and-poll.md).
 
+**Run log (optional).** If `MC_RUN_LOG` is set (the path to a project's `run-log.mjs`, e.g. Mission
+Control's `scripts/run-log.mjs`), wrap the dispatch with it so the project's activity log records the
+run against its issue. It never fails a run; the `end` call goes after the relay has returned:
+
+```bash
+[ -n "$MC_RUN_LOG" ] && node "$MC_RUN_LOG" start --agent codex --issue <n> --model <model> --effort <effort> --cd /path/to/repo || true
+node "<skill-dir>/scripts/relay.mjs" ...   # as above
+[ -n "$MC_RUN_LOG" ] && node "$MC_RUN_LOG" end --agent codex --issue <n> --result auto --cd /path/to/repo || true
+```
+
 ### 3. Wait for completion
 
 The helper blocks until Codex finishes, so back it with whatever your orchestrator offers and resume

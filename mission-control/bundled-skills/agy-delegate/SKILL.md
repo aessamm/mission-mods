@@ -80,6 +80,16 @@ The helper starts a fresh Antigravity project by default and passes `--add-dir <
 path, absolute) so `agy` has an explicit workspace. It does **not** pass `--dangerously-skip-permissions` by default.
 Mechanics, flags, and the `result.json` shape: [references/dispatch-and-poll.md](references/dispatch-and-poll.md).
 
+**Run log (optional).** If `MC_RUN_LOG` is set (the path to a project's `run-log.mjs`, e.g. Mission
+Control's `scripts/run-log.mjs`), wrap the dispatch with it so the project's activity log records the
+run against its issue. It never fails a run; the `end` call goes after the relay has returned:
+
+```bash
+[ -n "$MC_RUN_LOG" ] && node "$MC_RUN_LOG" start --agent agy --issue <n> --model <model> --effort <effort> --cd /path/to/repo || true
+node "<skill-dir>/scripts/relay.mjs" ...   # as above
+[ -n "$MC_RUN_LOG" ] && node "$MC_RUN_LOG" end --agent agy --issue <n> --result auto --cd /path/to/repo || true
+```
+
 ### 3. Wait for completion
 
 The helper blocks until Antigravity finishes, so back it with whatever your orchestrator offers and

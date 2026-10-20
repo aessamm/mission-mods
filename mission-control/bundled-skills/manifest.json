@@ -27,7 +27,7 @@
    "references/writing-the-brief.md",
    "scripts/relay.mjs"
   ],
-  "hash": "696fff5d7215"
+  "hash": "ddad97ef1ac7"
  },
  "agy-delegate": {
   "files": [
@@ -39,7 +39,7 @@
    "references/writing-the-brief.md",
    "scripts/relay.mjs"
   ],
-  "hash": "d70e08f27100"
+  "hash": "da06a2dc3303"
  },
  "opencode-delegate": {
   "files": [
@@ -51,7 +51,7 @@
    "references/writing-the-brief.md",
    "scripts/relay.mjs"
   ],
-  "hash": "b58abbfcaf43"
+  "hash": "899b9986b4bb"
  },
  "claude-delegate": {
   "files": [
