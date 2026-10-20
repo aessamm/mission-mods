@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { filterTickets, parseActivity, parseFrontmatter, parseTicket, sectionsOf } from '../hooks/features/board'
+import { activityLine, filterTickets, parseActivity, parseFrontmatter, parseTicket, sectionsOf } from '../hooks/features/board'
 
 const PANE = {
   component: 'Pane' as const,
@@ -38,6 +38,27 @@ test('activity skips bad lines and comes newest first; filters and sections spli
   expect(filterTickets(list, 'agents').map(t => t.id)).toEqual(['A-1', 'A-3'])
   const s = sectionsOf(list)
   expect([s.todo.length, s.review.length, s.blocked.length, s.done.length]).toEqual([1, 1, 1, 1])
+})
+
+test('activity reads object details, GitHub issues and folds hook lines in a row', () => {
+  const lines = [
+    '{"ts":"2026-10-20T01:00:00Z","actor":"claude","ticket":"M0-109","event":"commit.landed","detail":{"sha":"e58fa33abc"},"ref":null}',
+    '{"ts":"2026-10-20T02:00:00Z","actor":"claude","ticket":"M0-109","event":"ticket.status_changed","detail":{"from":"todo","to":"done"}}',
+    '{"ts":"2026-10-20T03:00:00Z","actor":"claude","event":"session.started","session_id":"a","source":"hook","trigger":"startup"}',
+    '{"ts":"2026-10-20T03:01:00Z","actor":"claude","event":"subagent.stopped","session_id":"a","agent_id":"x","source":"hook"}',
+    '{"ts":"2026-10-20T03:02:00Z","actor":"claude","event":"session.started","session_id":"b","source":"hook"}',
+    '{"ts":"2026-10-20T04:00:00Z","actor":"codex","ticket":null,"event":"run.completed","issue":28,"detail":{"agent":"codex","model":"gpt-6","durationSec":600,"touchedFiles":3},"source":"run-log"}',
+    '{"ts":"2026-10-20T05:00:00Z","actor":"claude","event":"session.ended","source":"hook","reason":"exit"}',
+    '{"ts":"2026-10-20T06:00:00Z","actor":"claude","event":"landed","ticket":"M0-201","commit":"a1595d7a","subject":"feat(web): Gen questions","backfill":true}',
+  ].join('\n')
+  const a = parseActivity(lines)
+  expect(a.map(x => x.event)).toEqual(['landed', 'claude.sessions', 'run.completed', 'claude.sessions', 'ticket.status_changed', 'commit.landed'])
+  expect(a[3]!.hooks).toEqual({ started: 2, ended: 0, subagents: 1 })
+  expect(activityLine(a[3]!).text).toBe('Claude: 2 sessions started, 1 subagent stopped')
+  expect(activityLine(a[2]!).text).toBe('#28 run completed: codex gpt-6 · 10 min · 3 files · codex')
+  expect(activityLine(a[4]!).text).toBe('M0-109 ticket status changed to done · claude')
+  expect(activityLine(a[5]!).text).toBe('M0-109 commit landed: e58fa33a · claude')
+  expect(activityLine(a[0]!).text).toBe('M0-201 landed: feat(web): Gen questions · a1595d7a · claude')
 })
 
 test('the Board tab shows the empty state without .ops, on both surfaces', async ($, on) => {

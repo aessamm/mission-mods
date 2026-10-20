@@ -114,19 +114,67 @@ export function statsOf(runs: Record<string, unknown>[]): AgentRunStats[] {
   return [...by.values()].sort((a, b) => b.runs - a.runs).map(({ secs, ...s }) => ({ ...s, ...(secs.length ? { avgSec: secs.reduce((n, x) => n + x, 0) / secs.length } : {}) }))
 }
 
+const HOOK_EVENTS = new Set(['session.started', 'session.ended', 'subagent.stopped'])
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
+
+// A few words from an object detail, plus the top-level fields older lines and Mission
+// Control's backfill put beside it (note, subject, commit).
+function detailText(o: Record<string, unknown>): string | undefined {
+  if (typeof o.detail === 'string') return o.detail || undefined
+  const d = isObj(o.detail) ? o.detail : {}
+  const s = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : typeof v === 'number' ? String(v) : '')
+  const sha = s(d.sha) || s(d.commit) || s(o.commit)
+  const words = [
+    s(o.note) || s(d.note) || s(o.subject) || s(d.subject),
+    s(d.reason),
+    [s(d.agent), s(d.model), s(d.effort)].filter(Boolean).join(' '),
+    s(d.id),
+    sha ? sha.slice(0, 8) : '',
+    typeof d.durationSec === 'number' && d.durationSec > 0 ? `${Math.round(d.durationSec / 60)} min` : '',
+    typeof d.touchedFiles === 'number' ? `${d.touchedFiles} file${d.touchedFiles === 1 ? '' : 's'}` : '',
+    d.rateLimited === true ? 'rate-limited' : '',
+  ].filter(Boolean)
+  return words.length ? words.join(' · ') : undefined
+}
+
+// The GitHub issue a line is about: `issue: 28` or `issue: "#28"`.
+const issueOf = (v: unknown): number | undefined => {
+  const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v.replace(/^#/, '')) : NaN
+  return Number.isInteger(n) && n > 0 ? n : undefined
+}
+
 // One JSON object per line; a line that is not one is skipped. Newest first, at most `limit`.
+// Hook lines in a row fold into one event, so a busy day of sessions does not hide the work.
 export function parseActivity(src: string, limit = 30): ActivityEvent[] {
-  const out: ActivityEvent[] = []
+  const all: ActivityEvent[] = []
   for (const line of src.split(/\r?\n/)) {
     if (!line.trim()) continue
     try {
-      const o = JSON.parse(line) as Record<string, unknown>
-      if (!o || typeof o !== 'object' || typeof o.event !== 'string') continue
-      const str = (k: string) => (typeof o[k] === 'string' ? (o[k] as string) : undefined)
-      out.push({ ts: str('ts') ?? '', actor: str('actor') ?? '', ticket: str('ticket'), event: o.event, detail: str('detail'), from: str('from'), to: str('to') })
+      const o = JSON.parse(line) as unknown
+      if (!isObj(o) || typeof o.event !== 'string') continue
+      const str = (v: unknown) => (typeof v === 'string' && v && v !== '-' ? v : undefined)
+      const d = isObj(o.detail) ? o.detail : {}
+      const issue = issueOf(o.issue)
+      all.push({
+        ts: str(o.ts) ?? '', actor: str(o.actor) ?? '', ticket: str(o.ticket), ...(issue ? { issue } : {}), event: o.event,
+        detail: HOOK_EVENTS.has(o.event) ? undefined : detailText(o), from: str(o.from) ?? str(d.from), to: str(o.to) ?? str(d.to),
+      })
     } catch { /* skip a bad line */ }
   }
-  return out.slice(-limit).reverse()
+  const out: ActivityEvent[] = []
+  for (const a of all.reverse()) {
+    if (HOOK_EVENTS.has(a.event)) {
+      const top = out[out.length - 1]
+      const group = top?.hooks ? top : undefined
+      const h = group?.hooks ?? { started: 0, ended: 0, subagents: 0 }
+      if (a.event === 'session.started') h.started++
+      else if (a.event === 'session.ended') h.ended++
+      else h.subagents++
+      if (!group) out.push({ ts: a.ts, actor: a.actor, event: 'claude.sessions', hooks: h })
+    } else out.push(a)
+    if (out.length > limit) break
+  }
+  return out.slice(0, limit)
 }
 
 export const holderOf = (assignee: string | undefined): string | undefined => {
@@ -157,10 +205,17 @@ const hhmm = (ts: string): string => {
   const d = new Date(ts)
   return Number.isNaN(d.getTime()) ? '' : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 export function activityLine(a: ActivityEvent): { time: string; text: string } {
+  if (a.hooks) {
+    const h = a.hooks
+    const parts = [h.started ? `${plural(h.started, 'session', 'sessions')} started` : '', h.ended ? `${h.ended} ended` : '', h.subagents ? `${plural(h.subagents, 'subagent', 'subagents')} stopped` : ''].filter(Boolean)
+    return { time: hhmm(a.ts), text: `Claude: ${parts.join(', ')}` }
+  }
   const what = a.event.replace(/[._]/g, ' ')
   const move = a.to ? ` to ${a.to.replace(/_/g, ' ')}` : ''
-  return { time: hhmm(a.ts), text: `${a.ticket ? `${a.ticket} ` : ''}${what}${move}${a.detail ? `: ${a.detail}` : ''}${a.actor ? ` · ${a.actor}` : ''}` }
+  const about = [a.issue ? `#${a.issue}` : '', a.ticket ?? ''].filter(Boolean).join(' ')
+  return { time: hhmm(a.ts), text: `${about ? `${about} ` : ''}${what}${move}${a.detail ? `: ${a.detail}` : ''}${a.actor ? ` · ${a.actor}` : ''}` }
 }
 
 // ---------------------------------------------------------------- loading
@@ -210,7 +265,8 @@ async function loadBoard($: EngineInterface): Promise<void> {
     if (t) tickets.push(t)
   }
   const raw = await $.fs.read(`${root}/.ops/log/activity.jsonl`).catch(() => '')
-  const last = raw.split(/\r?\n/).filter(l => l.trim()).slice(-30).join('\n')
+  // More lines than are shown: runs of hook lines fold into one.
+  const last = raw.split(/\r?\n/).filter(l => l.trim()).slice(-300).join('\n')
   const decisions = parseDecisions(await $.fs.read(`${root}/.ops/memory/DECISIONS.md`).catch(() => ''))
   const runs: Record<string, unknown>[] = []
   for (const d of (await $.fs.list(`${root}/.ops/runs`).catch(() => [])).filter(x => x.kind === 'dir').slice(0, 200)) {

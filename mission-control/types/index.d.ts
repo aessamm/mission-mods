@@ -97,7 +97,13 @@ export type Ticket = {
 export type DecisionNote = { id: string; title: string; date?: string }
 // What .ops/runs/<ticket>/*.json says about one agent.
 export type AgentRunStats = { agent: string; runs: number; approved: number; rejected: number; reworks: number; avgSec?: number; rateLimited: number }
-export type ActivityEvent = { ts: string; actor: string; ticket?: string; event: string; detail?: string; from?: string; to?: string }
+// A line of .ops/log/activity.jsonl. `detail` is the line's own words (a string detail, or a
+// summary of an object one). Claude Code hook lines (session.started / session.ended /
+// subagent.stopped) that come one after another are folded into one event with `hooks` counts.
+export type ActivityEvent = {
+  ts: string; actor: string; ticket?: string; issue?: number; event: string; detail?: string; from?: string; to?: string
+  hooks?: { started: number; ended: number; subagents: number }
+}
 export type BoardSnapshot = {
   root: string               // repo root that holds .ops/
   project: string
