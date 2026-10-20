@@ -10,7 +10,7 @@ import { emptyState } from '../kit/ui'
 import { activeTab, badgesFrom, clip, tabBar } from '../kit/chrome'
 import { barText, box, chip, estText, iconInk, label, outline, progress, statusWord, svg, text, textWidth, wide } from '../kit/draw'
 import { fmtSpan, fmtTime } from '../kit/role'
-import { expandHome, homeOf, isWindowsHome, mainCheckoutOf, tmpOf } from '../kit/paths'
+import { expandHome, homeOf, isWindowsHome, tmpOf } from '../kit/paths'
 import type { HomeEnv } from '../kit/paths'
 import { DEFAULT_PANEL, DEFAULT_SETTINGS, localDay, makeCtx, settingsOf } from '../kit/state'
 import type { PaneInput } from '../kit/state'
@@ -321,28 +321,11 @@ async function tick($: EngineInterface): Promise<void> {
   } catch { /* the poll never throws */ }
 }
 
-// Where .ops lives: the main checkout when the session runs in a linked worktree and the
-// main checkout has one (hooks and run logs write there), else the session's own root.
-const opsRoots = new Map<string, string>()
-async function opsRootOf($: EngineInterface, root: string): Promise<string> {
-  const known = opsRoots.get(root)
-  if (known) return known
-  let at = root
-  try {
-    const r = await $.process.run(['git', '-C', root, 'rev-parse', '--path-format=absolute', '--git-common-dir'], { timeoutMs: 5000 })
-    const main = r.exitCode === 0 ? mainCheckoutOf(r.stdout) : ''
-    if (main && main.toLowerCase() !== root.toLowerCase() && (await $.fs.exists(`${main}/.ops`).catch(() => false))) at = main
-  } catch { /* no git: the session's own root */ }
-  opsRoots.set(root, at)
-  return at
-}
-
 // Today's finished runs from <repo>/.ops/runs/<ticket>/*.json.
 async function loadOpsRuns($: EngineInterface): Promise<void> {
   try {
-    const here = await $.session.repo()
-    if (!here) return
-    const repo = { root: await opsRootOf($, here.root.replace(/\\/g, '/')) }
+    const repo = await $.session.repo()
+    if (!repo) return
     const base = joinPath(repo.root, '.ops/runs')
     const nowMs = await $.clock.now()
     const today = localDay(nowMs)

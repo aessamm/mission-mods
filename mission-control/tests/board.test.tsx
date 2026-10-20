@@ -102,25 +102,3 @@ test('tickets and the activity log load from .ops and draw on both surfaces', as
     await ui.unmount()
   }
 })
-
-test('in a linked worktree the board reads .ops from the main checkout', async ($, on) => {
-  mock.clock(on)
-  on('session.start', () => ({ cwd: '/w/app/.claude/worktrees/x' }))
-  on('command.register', (_$, e) => ({ value: { command: e.name } }))
-  on('tool.register', () => ({ value: undefined as never }))
-  const file = (name: string) => ({ name, kind: 'file' as const, size: 1, mtimeMs: 0, isLink: false })
-  on('session.repo', () => ({ value: { root: '/w/app/.claude/worktrees/x', remote: null, internal: false } }))
-  on('process.run', (_$, e) => ({ value: { exitCode: e.argv.includes('--git-common-dir') ? 0 : 1, stdout: '/w/app/.git\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
-  // The test host resolves paths against its own drive, so match on the tail only.
-  const at = (p: string, tail: string) => p.replace(/\\/g, '/').endsWith(tail)
-  const inMain = (p: string) => !p.replace(/\\/g, '/').includes('/worktrees/')
-  on('fs.exists', (_$, e) => ({ value: inMain(e.path) && (at(e.path, '/w/app/.ops') || at(e.path, '/w/app/.ops/tickets')) }))
-  on('fs.list', (_$, e) => ({ value: inMain(e.path) && at(e.path, '/w/app/.ops/tickets') ? [file('M0-009.md')] : [] }))
-  on('fs.read', (_$, e) => ({ value: inMain(e.path) && at(e.path, '/w/app/.ops/tickets/M0-009.md') ? ticketSrc('M0-009', 'Main checkout ticket', 'todo') : '' }))
-  await $.session.start({ ...START, cwd: '/w/app/.claude/worktrees/x' })
-  const ui = await $.ui.mount({ plugin: 'mission-control', surface: 'terminal', ...PANE })
-  await ui.press({ key: 'tab-board' })
-  const drawn = JSON.stringify(await ui.drawn())
-  expect(drawn.includes('Main checkout ticket')).toBe(true)
-  await ui.unmount()
-})

@@ -32,22 +32,6 @@ export function tmpOf(windows: boolean, env: { tmpdir?: string; temp?: string; t
   return pick ? slash(pick) : ''
 }
 
-// The main checkout from `git rev-parse --path-format=absolute --git-common-dir`: the folder
-// holding `.git`. A linked worktree shares the main checkout's common dir, so this is where
-// hooks and run logs write `.ops/`, not the worktree's own tracked copy. Empty when the
-// common dir is not a `.git` folder (a bare repo, or git not answering).
-export function mainCheckoutOf(commonDir: string): string {
-  const d = slash(commonDir.trim())
-  return /\/\.git$/.test(d) ? d.slice(0, -5) : ''
-}
-
-// The parent folder of a path ('' for a root).
-export const parentOf = (p: string): string => {
-  const s = slash(p)
-  const i = s.lastIndexOf('/')
-  return i > 0 ? s.slice(0, i) : ''
-}
-
 // "~" and "~/x" become the home folder; anything else is returned as it is.
 export function expandHome(p: string, home: string): string {
   if (!home) return p
