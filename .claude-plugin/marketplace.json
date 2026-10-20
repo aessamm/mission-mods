@@ -11,7 +11,7 @@
     {
       "name": "mission-control",
       "source": "./mission-control",
-      "description": "Your agent team at a glance: live sub-agents, delegations, an .ops ticket board, a daily log, a plan-aware budget and a status line above the prompt."
+      "description": "Your agent team at a glance: live sub-agents, delegations, a board of GitHub issues or .ops tickets, a daily log, a plan-aware budget and a status line above the prompt."
     }
   ]
 }

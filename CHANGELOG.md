@@ -1,5 +1,25 @@
 # Changelog
 
+## mission-control 0.10.0 — GitHub issues, Mission Control's new log
+
+- Board: when a Mission Control folder (`MC_DIR`, the one holding `MC_RUN_LOG`'s script, or
+  `mission-control` beside the repo) has cached this repo's GitHub issues, the board shows
+  them in the project board's columns, with a new Waiting on owner section, labels, and a
+  note when the cache is stale. Otherwise it reads `.ops/tickets` as before.
+  **Settings › Panel › Board reads** can keep it on `.ops` only.
+- Activity log: reads object details, GitHub issue numbers (`#28`), backfill lines and
+  Mission Control's run-log lines; Claude Code hook lines in a row (session started, ended,
+  subagent stopped) fold into one row.
+- Delegations: a run wrapped by `run-log.mjs --issue N`, or a brief naming `#N`, shows as
+  `#N`; finished runs that run-log recorded today appear from any session, titled from the
+  board, without doubling a run this session followed live.
+- `/ship`: with a GitHub board, lists the issues the branch's commits name with their board
+  column, and warns about ones not yet in Review or Done. Git now runs in the session's
+  folder, so a linked worktree ships its own branch.
+- `/standup`: Waiting on owner issues are listed under Blocked.
+- Companion skills: codex-, agy- and opencode-delegate call Mission Control's `run-log.mjs`
+  around a run when `MC_RUN_LOG` is set.
+
 ## mission-control 0.9.2 — ready for the Claude directory
 
 - The plugin's own README now covers what it does, setup, commands, and everything it does

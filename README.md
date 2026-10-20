@@ -12,8 +12,9 @@ Your agent team at a glance, in a side panel and a status line above the prompt.
   model or effort, send it a note, or stop it.
 - **Delegations** — tasks handed to Codex, Antigravity (agy), OpenCode or another Claude
   through the delegate skills, followed to their result with diff and test counts.
-- **Board** — tickets from the repo's `.ops/` folder: doing, review, blocked, to do, what
-  each ticket is blocked by, the agents' run stats and the latest decisions.
+- **Board** — the repo's GitHub issues in their board columns when Mission Control has them
+  cached, else tickets from the repo's `.ops/` folder: doing, review, waiting on owner,
+  blocked, to do, the agents' run stats and the latest decisions.
 - **Log** — the day across projects, with `/standup`, `/handoff` and `/ship`.
 - **Budget** — pauses new agents at a share of your plan's 5-hour or weekly window, or at a
   daily dollar limit.
@@ -106,8 +107,8 @@ The delegate skills need their own CLIs (`codex`, `agy`, `opencode`, `claude`) a
 ## What it does on your machine
 
 Everything runs locally, and Mission Control sends nothing over the network. In short: it
-runs read-only `git` commands, reads `.ops/`, delegate results and Claude Code's plugin
-records, copies the companion skills when they are missing, and only starts or stops an
+runs read-only `git` commands, reads `.ops/`, Mission Control's GitHub cache, delegate
+results and Claude Code's plugin records, copies the companion skills when they are missing, and only starts or stops an
 agent when you press a button for it. The full list of every program it runs, every hook
 and what it changes, and every file it reads and writes is in
 [mission-control/README.md](mission-control/README.md#what-it-does-on-your-machine).

@@ -5,7 +5,8 @@ Your agent team at a glance, in a side panel and a status line above the prompt.
 
 Mission Control is a mod for Claude Code. It watches the session you are working in and
 shows what the main session and each sub-agent is doing, the tasks you hand to other coding
-CLIs, the tickets in your repository's `.ops/` folder, and the day's work across projects.
+CLIs, the repository's tasks (GitHub issues through Mission Control, or the `.ops/` folder),
+and the day's work across projects.
 Everything runs locally.
 
 ## What you get
@@ -15,8 +16,10 @@ Everything runs locally.
   model or effort, send it a note, retry it or stop it.
 - **Delegations**: tasks handed to Codex, Antigravity (agy), OpenCode or another Claude
   through the delegate skills, followed to their result with diff and test counts.
-- **Board**: tickets from the repository's `.ops/` folder: doing, review, blocked, to do,
-  what each ticket is blocked by, the agents' run stats and the latest decisions.
+- **Board**: the repository's GitHub issues in their project-board columns (doing, review,
+  waiting on owner, blocked, to do) when a Mission Control folder has them cached, else the
+  tickets in its `.ops/` folder with what each one is blocked by; plus the activity log, the
+  agents' run stats and the latest decisions.
 - **Log**: the day across projects, with `/standup`, `/handoff` and `/ship`.
 - **Budget**: pauses new sub-agents at a share of your plan's 5-hour or weekly window, or at
   a daily dollar limit.
@@ -105,15 +108,22 @@ anywhere.
 
 ### Files it reads
 
-- `.ops/` in the current repository (tickets, activity log, decisions, run stats) for Board,
-  and the `.md` and `.yml` files under it for `/ship`.
+- `.ops/` in the current repository (tickets, activity log, decisions, run stats) for Board
+  and Delegations, and the `.md` and `.yml` files under it for `/ship`.
+- Mission Control's GitHub cache, `<mission-control>/.cache/github-tasks.json`, and its
+  `mc.config.json`, from the folder `MC_DIR` names, the one holding the script `MC_RUN_LOG`
+  names, or a `mission-control` folder beside the repository. It is used only when it belongs
+  to this repository (its GitHub repo is the `origin` remote, or, with no remote, its
+  `appDir` is this repository). Mission Control fetches it; this mod never calls GitHub.
+  Turn it off in **Settings › Panel › Board reads**.
 - The delegate relays' `result.json` files in your temp folder (`delegate-relay` folders),
   and the brief files given to them.
 - Claude Code's plugin records in `~/.claude` (`settings.json`,
   `plugins/installed_plugins.json`, `plugins/known_marketplaces.json` and the marketplaces'
   `marketplace.json`), to show which Mission Mods are installed and enabled in Info.
 - Environment variables, for folder locations only: `USERPROFILE`, `HOME`,
-  `CLAUDE_CONFIG_DIR`, `TMPDIR`, `TEMP` and `TMP`. It reads no keys, tokens or passwords.
+  `CLAUDE_CONFIG_DIR`, `TMPDIR`, `TEMP`, `TMP`, `MC_DIR` and `MC_RUN_LOG`. It reads no keys,
+  tokens or passwords.
 
 ### Files it writes
 
