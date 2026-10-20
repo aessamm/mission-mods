@@ -5,8 +5,9 @@ import { atom, read, update } from 'claude-code'
 import { failedView } from '../kit/ui'
 import type { EngineInterface, On, RenderElement } from 'claude-code'
 
-import type { ActivityEvent, AgentRecord, AgentRunStats, BoardSnapshot, DecisionNote, Delegation, Settings, Ticket, TicketStatus } from '../../types'
+import type { ActivityEvent, AgentRecord, AgentRunStats, BoardSnapshot, BoardSource, DecisionNote, Delegation, Settings, Ticket, TicketStatus } from '../../types'
 import { fmtSpan } from '../kit/role'
+import { parentOf, resolveIn, samePath } from '../kit/paths'
 import { emptyState } from '../kit/ui'
 import { activeTab, badgesFrom, clip, tabBar } from '../kit/chrome'
 import { barText, box, hline, iconInk, progress, svg, text, textWidth, wide } from '../kit/draw'
@@ -29,6 +30,7 @@ type Motion = 'full' | 'calm' | 'off'
 const STATUS_WORDS: Record<string, TicketStatus> = {
   todo: 'todo', to_do: 'todo', backlog: 'todo', ready: 'ready', in_progress: 'in_progress', doing: 'in_progress', wip: 'in_progress',
   in_review: 'in_review', review: 'in_review', rework: 'rework', done: 'done', closed: 'done', merged: 'done', blocked: 'blocked',
+  waiting: 'waiting', waiting_on_owner: 'waiting',
 }
 export const statusOf = (raw: string | undefined): TicketStatus => STATUS_WORDS[(raw ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_')] ?? 'todo'
 
@@ -71,6 +73,51 @@ export function parseTicket(src: string, path: string): Ticket | null {
     assignee: pick('assignee'), milestone: pick('milestone'), epic: pick('epic'), tier: pick('tier'), estimate: pick('estimate'),
     ...(deps.length ? { dependsOn: deps } : {}), ...(pick('model') ? { model: pick('model') } : {}),
   }
+}
+
+// ---------------------------------------------------------------- GitHub issues (Mission Control's cache)
+// Mission Control, the project tool this mod is named after, keeps a repo's GitHub issues and
+// their project-board Status in <mission-control>/.cache/github-tasks.json. A closed
+// issue is done; an open one labelled "blocked" is blocked; else its board column decides.
+export type GithubCache = { repo: string; fetchedAt: number; board?: string; url?: string; tickets: Ticket[] }
+const labelName = (l: unknown): string => (typeof l === 'string' ? l : isObj(l) && typeof l.name === 'string' ? l.name : '')
+const loginOf = (a: unknown): string => (typeof a === 'string' ? a : isObj(a) && typeof a.login === 'string' ? a.login : '')
+export function githubCacheOf(raw: unknown): GithubCache | null {
+  if (!isObj(raw) || typeof raw.repo !== 'string' || !Array.isArray(raw.issues)) return null
+  const tickets: Ticket[] = []
+  for (const i of raw.issues) {
+    if (!isObj(i) || typeof i.number !== 'number' || typeof i.title !== 'string') continue
+    const labels = Array.isArray(i.labels) ? i.labels.map(labelName).filter(Boolean) : []
+    const closed = String(i.state).toLowerCase() === 'closed'
+    const status: TicketStatus = closed ? 'done' : labels.includes('blocked') ? 'blocked' : statusOf(typeof i.status === 'string' ? i.status : undefined)
+    const who = Array.isArray(i.assignees) ? loginOf(i.assignees[0]) : ''
+    const shown = labels.filter(l => l !== 'blocked' && l !== 'owner-action').map(l => l.replace(/^[\w-]+:/, ''))
+    const url = typeof i.url === 'string' ? i.url : undefined
+    tickets.push({
+      id: `#${i.number}`, title: i.title, status, path: url ?? `#${i.number}`,
+      ...(who ? { assignee: who } : {}), ...(shown.length ? { labels: shown } : {}), ...(url ? { url } : {}),
+    })
+  }
+  const p = isObj(raw.project) ? raw.project : {}
+  const at = Date.parse(typeof raw.fetchedAt === 'string' ? raw.fetchedAt : '')
+  return {
+    repo: raw.repo, fetchedAt: Number.isFinite(at) ? at : 0, tickets,
+    ...(typeof p.number === 'number' ? { board: `${typeof p.title === 'string' && p.title ? `${p.title} ` : ''}#${p.number}` } : {}),
+    ...(typeof p.url === 'string' ? { url: p.url } : {}),
+  }
+}
+
+// Whether a git remote URL is the GitHub repo "owner/name" (https or ssh, with or without .git).
+export function remoteIs(remote: string, repo: string): boolean {
+  const r = remote.trim().toLowerCase().replace(/\.git$/, '').replace(/\/+$/, '')
+  const want = repo.trim().toLowerCase()
+  return !!want && (r.endsWith(`/${want}`) || r.endsWith(`:${want}`))
+}
+
+// Mission Control's folder from MC_RUN_LOG (".../mission-control/scripts/run-log.mjs").
+export const mcDirOfRunLog = (p: string): string => {
+  const s = p.trim().replace(/\\/g, '/')
+  return /\/scripts\/run-log\.mjs$/.test(s) ? s.replace(/\/scripts\/run-log\.mjs$/, '') : ''
 }
 
 // Ticket ids in a frontmatter list: "[M0-003, M0-004]" or "M0-003, M0-004".
@@ -194,10 +241,21 @@ export function filterTickets(list: Ticket[], f: BoardFilter): Ticket[] {
   return list
 }
 
-export type Sections = { doing: Ticket[]; review: Ticket[]; blocked: Ticket[]; todo: Ticket[]; done: Ticket[] }
+export type Sections = { doing: Ticket[]; review: Ticket[]; waiting: Ticket[]; blocked: Ticket[]; todo: Ticket[]; done: Ticket[] }
 export function sectionsOf(list: Ticket[]): Sections {
   const by = (...s: TicketStatus[]) => list.filter(t => s.includes(t.status))
-  return { doing: by('in_progress'), review: by('in_review', 'rework'), blocked: by('blocked'), todo: by('todo', 'ready'), done: by('done') }
+  return { doing: by('in_progress'), review: by('in_review', 'rework'), waiting: by('waiting'), blocked: by('blocked'), todo: by('todo', 'ready'), done: by('done') }
+}
+
+// Where the header says the tickets came from.
+export const sourceTag = (snap: BoardSnapshot): string =>
+  snap.source?.kind === 'github' ? `${snap.source.repo}${snap.source.board ? ` · ${snap.source.board}` : ''}` : '.ops/tickets'
+// "cached 2h ago" when Mission Control's copy of GitHub is older than 15 minutes.
+export function staleNote(snap: BoardSnapshot, now: number): string {
+  if (snap.source?.kind !== 'github' || !snap.source.fetchedAt) return ''
+  const m = Math.round((now - snap.source.fetchedAt) / 60000)
+  if (m < 15) return ''
+  return `cached ${m >= 1440 ? `${Math.floor(m / 1440)}d` : m >= 60 ? `${Math.floor(m / 60)}h` : `${m}m`} ago`
 }
 
 const hhmm = (ts: string): string => {
@@ -231,13 +289,35 @@ async function walk($: EngineInterface, dir: string, out: string[], depth: numbe
   }
 }
 
-async function loadBoard($: EngineInterface): Promise<void> {
-  const root = ((await $.session.repo().catch(() => null))?.root ?? (await $.session.cwd())).replace(/\\/g, '/')
-  const dir = `${root}/.ops/tickets`
-  if (!(await $.fs.exists(dir).catch(() => false))) {
-    if ((await read($, board)) !== null) await update($, board, () => null)
-    return
+// Mission Control's GitHub cache for this repo, if one is around: the folder named by MC_DIR,
+// the one holding MC_RUN_LOG's script, or a "mission-control" folder beside the repo. The
+// cache counts only when it is this repo's: its GitHub repo is the origin remote, or, with
+// no remote, Mission Control's mc.config.json points its appDir here.
+async function githubFor($: EngineInterface, root: string, remote: string | null): Promise<GithubCache | null> {
+  const runLog = await $.env.get('MC_RUN_LOG').catch(() => undefined)
+  const dirs = [await $.env.get('MC_DIR').catch(() => undefined), runLog ? mcDirOfRunLog(runLog) : '', `${parentOf(root)}/mission-control`]
+    .filter((d): d is string => !!d && !!d.trim()).map(d => d.trim().replace(/\\/g, '/').replace(/\/+$/, ''))
+  for (const dir of [...new Set(dirs)]) {
+    const src = await $.fs.read(`${dir}/.cache/github-tasks.json`).catch(() => '')
+    if (typeof src !== 'string' || !src) continue
+    let cache: GithubCache | null = null
+    try { cache = githubCacheOf(JSON.parse(src)) } catch { /* a half-written cache */ }
+    if (!cache) continue
+    if (remote) {
+      if (remoteIs(remote, cache.repo)) return cache
+      continue
+    }
+    try {
+      const cfg = JSON.parse(String(await $.fs.read(`${dir}/mc.config.json`))) as { appDir?: unknown }
+      if (typeof cfg.appDir === 'string' && samePath(resolveIn(dir, cfg.appDir), root)) return cache
+    } catch { /* no config: not provably this repo */ }
   }
+  return null
+}
+
+async function opsTickets($: EngineInterface, root: string): Promise<Ticket[] | null> {
+  const dir = `${root}/.ops/tickets`
+  if (!(await $.fs.exists(dir).catch(() => false))) return null
   const files: string[] = []
   await walk($, dir, files, 0)
   const tickets: Ticket[] = []
@@ -246,6 +326,20 @@ async function loadBoard($: EngineInterface): Promise<void> {
     const t = parseTicket(src, f.slice(root.length + 1))
     if (t) tickets.push(t)
   }
+  return tickets
+}
+
+async function loadBoard($: EngineInterface): Promise<void> {
+  const repo = await $.session.repo().catch(() => null)
+  const root = (repo?.root ?? (await $.session.cwd())).replace(/\\/g, '/')
+  const s = settingsOf(await read($, settings))
+  const gh = s.boardSource === 'ops' ? null : await githubFor($, root, repo?.remote ?? null)
+  const tickets = gh ? gh.tickets : await opsTickets($, root)
+  if (!tickets) {
+    if ((await read($, board)) !== null) await update($, board, () => null)
+    return
+  }
+  const source: BoardSource = gh ? { kind: 'github', repo: gh.repo, fetchedAt: gh.fetchedAt, ...(gh.board ? { board: gh.board } : {}), ...(gh.url ? { url: gh.url } : {}) } : { kind: 'ops' }
   const raw = await $.fs.read(`${root}/.ops/log/activity.jsonl`).catch(() => '')
   // More lines than are shown: runs of hook lines fold into one.
   const last = raw.split(/\r?\n/).filter(l => l.trim()).slice(-300).join('\n')
@@ -257,9 +351,9 @@ async function loadBoard($: EngineInterface): Promise<void> {
       try { runs.push(JSON.parse(String(await $.fs.read(`${root}/.ops/runs/${d.name}/${f.name}`))) as Record<string, unknown>) } catch { /* unreadable run */ }
     }
   }
-  const snap: BoardSnapshot = { root, project: baseName(root), tickets, activity: parseActivity(last, 30), decisions, agentStats: statsOf(runs), readAt: await $.clock.now() }
+  const snap: BoardSnapshot = { root, project: baseName(root), tickets, source, activity: parseActivity(last, 30), decisions, agentStats: statsOf(runs), readAt: await $.clock.now() }
   const was = await read($, board)
-  const key = (b: BoardSnapshot) => JSON.stringify([b.root, b.tickets, b.activity, b.decisions ?? [], b.agentStats ?? []])
+  const key = (b: BoardSnapshot) => JSON.stringify([b.root, b.tickets, b.source ?? null, b.activity, b.decisions ?? [], b.agentStats ?? []])
   const same = !!was && key(was) === key(snap)
   if (!same) await update($, board, () => snap)
 }
@@ -295,13 +389,14 @@ export function registerBoard(on: On): void {
 // ---------------------------------------------------------------- drawing
 function emptyBody(c: TabCtx, s: Settings, kickoff: () => void) {
   const { Button } = c.ui
-  return emptyState(c, s.look, 'board', 'No board in this project', 'Mission Control reads tickets from .ops/tickets. Start one with /ai-team-project-kickoff.', 'architect', '#7F77DD',
+  return emptyState(c, s.look, 'board', 'No board in this project', 'Mission Control reads GitHub issues from a Mission Control folder beside the repo (or MC_DIR), else tickets from .ops/tickets. Start one with /ai-team-project-kickoff.', 'architect', '#7F77DD',
     <Button key="kickoff" label="Start a board" variant="primary" onPress={kickoff} />)
 }
 
 const ROW = 28, ROW2 = 46
-// A ticket with dependencies or a model gets a second line: what it waits for, then the model.
-const hasMeta = (t: Ticket) => !!(t.dependsOn?.length || t.model)
+// A ticket with dependencies, a model or labels gets a second line: what it waits for, the
+// model, then the labels.
+const hasMeta = (t: Ticket) => !!(t.dependsOn?.length || t.model || t.labels?.length)
 const rowH = (t: Ticket) => (hasMeta(t) ? ROW2 : ROW)
 const sectionH = (list: Ticket[]) => 26 + list.reduce((n, t) => n + rowH(t), 0) + 6
 function metaSvg(t: Ticket, byId: Map<string, Ticket>, x: number, y: number, max: number): string {
@@ -316,7 +411,11 @@ function metaSvg(t: Ticket, byId: Map<string, Ticket>, x: number, y: number, max
     out += text(at, y, s, { size: 11, cls: t.status === 'todo' || t.status === 'ready' ? 'ok' : 's', max })
     at += textWidth(s, 11) + 10
   }
-  if (t.model && at < x + max - 40) out += text(at, y, t.model, { size: 11, cls: 'm', mono: true, max: x + max - at })
+  if (t.model && at < x + max - 40) {
+    out += text(at, y, t.model, { size: 11, cls: 'm', mono: true, max: x + max - at })
+    at += textWidth(t.model, 11) + 10
+  }
+  if (t.labels?.length && at < x + max - 40) out += text(at, y, t.labels.join(' · '), { size: 11, cls: 'm', max: x + max - at })
   return out
 }
 const logRows = (act: ActivityEvent[]) => Math.max(1, Math.min(8, act.length))
@@ -341,13 +440,13 @@ export function milestonesOf(list: Ticket[]): { name: string; done: number; tota
 }
 const headH = (snap: BoardSnapshot) => (milestonesOf(snap.tickets).length > 1 ? 84 : 66)
 
-function headSvg(W: number, snap: BoardSnapshot, theme: Theme, motion: Motion) {
+function headSvg(W: number, snap: BoardSnapshot, stale: string, theme: Theme, motion: Motion) {
   const done = snap.tickets.filter(t => t.status === 'done').length, total = snap.tickets.length
-  const tag = '.ops/tickets'
+  const tag = sourceTag(snap)
   const ms = milestonesOf(snap.tickets)
   const msLine = ms.length > 1 ? text(0, 80, ms.map(m => `${m.name} ${m.done}/${m.total}`).join('  ·  '), { size: 11, cls: 's', max: W }) : ''
-  return wide(W, headH(snap), `${msLine}${text(0, 14, 'PROJECT', { size: 10.5, cls: 's' })}
-${text(0, 34, snap.project, { size: 14, weight: 600, max: W - 130 })}
+  return wide(W, headH(snap), `${msLine}${text(0, 14, 'PROJECT', { size: 10.5, cls: 's' })}${stale ? text(W, 14, stale, { size: 10.5, cls: 'm', anchor: 'end' }) : ''}
+${text(0, 34, snap.project, { size: 14, weight: 600, max: Math.max(80, W - textWidth(tag, 11) - 40) })}
 ${iconInk('ticket', W - textWidth(tag, 11) - 20, 22, 13)}${text(W, 34, tag, { size: 11, cls: 's', anchor: 'end' })}
 ${progress(0, 50, W, total ? done / total : 0, done === total && total > 0 ? 'done' : 'real', '#7f77dd', `${done}/${total} done`)}`, theme, motion)
 }
@@ -418,14 +517,14 @@ function boardBody(c: TabCtx, snap: BoardSnapshot, filter: BoardFilter, isDoneCo
     </Box>
   )
   const doneBtn = sec.done.length > 0 ? <Button key="done-toggle" label={`${isDoneCollapsed ? '▸' : '▾'} Done · ${sec.done.length}`} plain onPress={toggleDone} /> : null
-  const groups: [string, Ticket[], 'plain' | 'blocked'][] = [['Doing', sec.doing, 'plain'], ['Review', sec.review, 'plain'], ['Blocked', sec.blocked, 'blocked'], ['To do', sec.todo, 'plain']]
+  const groups: [string, Ticket[], 'plain' | 'blocked'][] = [['Doing', sec.doing, 'plain'], ['Review', sec.review, 'plain'], ['Waiting on owner', sec.waiting, 'plain'], ['Blocked', sec.blocked, 'blocked'], ['To do', sec.todo, 'plain']]
   const shown = groups.filter(([, l]) => l.length > 0)
 
   if (c.isDesktop && Svg) {
     const W = c.W
     return (
       <Box key="board" flexDirection="column" gap={1}>
-        <Svg source={headSvg(W, snap, theme, motion)} alt={`${snap.project}, ${done} of ${total} tickets done`} height={headH(snap)} />
+        <Svg source={headSvg(W, snap, staleNote(snap, c.at), theme, motion)} alt={`${snap.project}, ${sourceTag(snap)}, ${done} of ${total} done`} height={headH(snap)} />
         {filters}
         {shown.map(([name, list, tone]) => (
           <Svg key={name} source={sectionSvg(W, `${name} · ${list.length}`, list, tone, byId, theme, motion)} alt={`${name}: ${list.map(t => `${t.id} ${t.title}${blockedBy(t, byId).length ? `, blocked by ${blockedBy(t, byId).join(' and ')}` : ''}`).join(', ')}`} height={sectionH(list)} />
@@ -455,7 +554,7 @@ function boardBody(c: TabCtx, snap: BoardSnapshot, filter: BoardFilter, isDoneCo
   }
   return (
     <Box key="board" flexDirection="column">
-      <Text bold>{`${snap.project}  .ops/tickets`}</Text>
+      <Text bold>{`${snap.project}  ${sourceTag(snap)}${staleNote(snap, c.at) ? `  (${staleNote(snap, c.at)})` : ''}`}</Text>
       <Text>{`${barText(total ? done / total : 0, bw)} ${total ? Math.round((done / total) * 100) : 0}%  ${done}/${total} done`}</Text>
       {filters}
       {shown.map(([name, list, tone]) => (

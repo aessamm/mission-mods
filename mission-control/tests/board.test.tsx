@@ -1,6 +1,8 @@
 import { expect, mock, test } from 'claude-code/testing'
+import type { TestBody } from 'claude-code/testing'
 
-import { activityLine, filterTickets, parseActivity, parseFrontmatter, parseTicket, sectionsOf } from '../hooks/features/board'
+import { activityLine, filterTickets, githubCacheOf, mcDirOfRunLog, parseActivity, parseFrontmatter, parseTicket, remoteIs, sectionsOf, staleNote, sourceTag } from '../hooks/features/board'
+import { resolveIn, samePath } from '../hooks/kit/paths'
 
 const PANE = {
   component: 'Pane' as const,
@@ -101,4 +103,90 @@ test('tickets and the activity log load from .ops and draw on both surfaces', as
     expect(drawn.includes('TEMPLATE')).toBe(false)
     await ui.unmount()
   }
+})
+
+const CACHE = JSON.stringify({
+  schema: 'mc.github-tasks.v1', fetchedAt: '2026-10-20T04:50:00Z', repo: 'aessamm/mos',
+  project: { owner: 'aessamm', number: 3, title: 'Agenca', url: 'https://github.com/users/aessamm/projects/3' },
+  issues: [
+    { number: 35, title: 'Daily production database backup', state: 'open', url: 'https://github.com/aessamm/mos/issues/35', labels: [{ name: 'type:ops' }, { name: 'priority:p1' }], assignees: [], status: 'In progress' },
+    { number: 42, title: 'Paste the Meta app secret', state: 'open', labels: [{ name: 'owner-action' }], assignees: [{ login: 'aessamm' }], status: 'Waiting on owner' },
+    { number: 44, title: 'Blocked on DNS', state: 'open', labels: [{ name: 'blocked' }], assignees: [], status: 'Todo' },
+    { number: 47, title: 'New card', state: 'open', labels: [], assignees: [], status: null },
+    { number: 20, title: 'Old one', state: 'closed', labels: [], assignees: [], status: 'Review' },
+    { title: 'no number' },
+  ],
+})
+
+test('GitHub issues from Mission Control’s cache become tickets in the board’s columns', () => {
+  const g = githubCacheOf(JSON.parse(CACHE))!
+  expect(g).toMatchObject({ repo: 'aessamm/mos', board: 'Agenca #3', url: 'https://github.com/users/aessamm/projects/3' })
+  expect(g.tickets.map(t => [t.id, t.status])).toEqual([['#35', 'in_progress'], ['#42', 'waiting'], ['#44', 'blocked'], ['#47', 'todo'], ['#20', 'done']])
+  expect(g.tickets[0]).toMatchObject({ labels: ['ops', 'p1'], url: 'https://github.com/aessamm/mos/issues/35' })
+  expect(g.tickets[1]).toMatchObject({ assignee: 'aessamm' })
+  expect(g.tickets[1]!.labels).toBeUndefined()
+  const s = sectionsOf(g.tickets)
+  expect([s.doing.length, s.waiting.length, s.blocked.length, s.todo.length, s.done.length]).toEqual([1, 1, 1, 1, 1])
+  expect(githubCacheOf({ repo: 'x' })).toBeNull()
+  const snap = { root: '/r', project: 'app', tickets: [], activity: [], readAt: 0, source: { kind: 'github' as const, repo: 'aessamm/mos', board: 'Agenca #3', fetchedAt: Date.parse('2026-10-20T04:50:00Z') } }
+  expect(sourceTag(snap)).toBe('aessamm/mos · Agenca #3')
+  expect(sourceTag({ ...snap, source: { kind: 'ops' } })).toBe('.ops/tickets')
+  expect(staleNote(snap, Date.parse('2026-10-20T04:55:00Z'))).toBe('')
+  expect(staleNote(snap, Date.parse('2026-10-20T07:00:00Z'))).toBe('cached 2h ago')
+})
+
+test('a cache counts only for its own repo; MC_RUN_LOG names Mission Control’s folder', () => {
+  expect(remoteIs('https://github.com/aessamm/mos.git', 'aessamm/mos')).toBe(true)
+  expect(remoteIs('git@github.com:AessamM/mos.git', 'aessamm/mos')).toBe(true)
+  expect(remoteIs('https://github.com/aessamm/mission-mods.git', 'aessamm/mos')).toBe(false)
+  expect(remoteIs('https://github.com/x/aessamm/mos2', 'aessamm/mos')).toBe(false)
+  expect(mcDirOfRunLog('D:\\w\\mission-control\\scripts\\run-log.mjs')).toBe('D:/w/mission-control')
+  expect(mcDirOfRunLog('/x/other.mjs')).toBe('')
+  expect(resolveIn('D:/w/mission-control', '../app')).toBe('D:/w/app')
+  expect(resolveIn('/w/mc', './a/../b')).toBe('/w/mc/b')
+  expect(samePath('D:/W/App', 'd:\\w\\app\\')).toBe(true)
+  expect(samePath('/w/App', '/w/app')).toBe(false)
+})
+
+// The test host resolves paths against its own drive, so mocks match on the tail only.
+const tail = (p: string) => p.replace(/\\/g, '/')
+async function boardWith($: Parameters<TestBody>[0], on: Parameters<TestBody>[1],remote: string | null, extra: Record<string, string> = {}) {
+  mock.clock(on)
+  on('session.start', () => ({ cwd: '/w/app' }))
+  on('command.register', (_$, e) => ({ value: { command: e.name } }))
+  on('tool.register', () => ({ value: undefined as never }))
+  const file = (name: string) => ({ name, kind: 'file' as const, size: 1, mtimeMs: 0, isLink: false })
+  on('session.repo', () => ({ value: { root: '/w/app', name: 'app', remote, internal: false } }))
+  on('fs.exists', (_$, e) => ({ value: tail(e.path).endsWith('/w/app/.ops/tickets') }))
+  on('fs.list', (_$, e) => ({ value: tail(e.path).endsWith('/w/app/.ops/tickets') ? [file('M0-001.md')] : [] }))
+  const files: Record<string, string> = { '/w/mission-control/.cache/github-tasks.json': CACHE, '/w/app/.ops/tickets/M0-001.md': ticketSrc('M0-001', 'Old ops ticket', 'done'), ...extra }
+  on('fs.read', (_$, e) => {
+    const hit = Object.keys(files).find(k => tail(e.path).endsWith(k))
+    return hit ? { value: files[hit]! } : { deny: 'ENOENT' }
+  })
+  await $.session.start({ ...START, cwd: '/w/app' })
+  const ui = await $.ui.mount({ plugin: 'mission-control', surface: 'desktop', ...PANE })
+  await ui.press({ key: 'tab-board' })
+  const drawn = JSON.stringify(await ui.drawn())
+  await ui.unmount()
+  return drawn
+}
+
+test('the board draws GitHub issues when the cache beside the repo is this repo’s', async ($, on) => {
+  const drawn = await boardWith($, on, 'https://github.com/aessamm/mos.git')
+  expect(drawn.includes('Daily production database backup')).toBe(true)
+  expect(drawn.includes('Waiting on owner · 1')).toBe(true)
+  expect(drawn.includes('aessamm/mos · Agenca #3')).toBe(true)
+  expect(drawn.includes('Old ops ticket')).toBe(false)
+})
+
+test('another repo’s cache is ignored and the board falls back to .ops/tickets', async ($, on) => {
+  const drawn = await boardWith($, on, 'https://github.com/someone/else.git')
+  expect(drawn.includes('Daily production database backup')).toBe(false)
+  expect(drawn.includes('.ops/tickets')).toBe(true)
+})
+
+test('with no remote, the cache counts when mc.config.json points its appDir at the repo', async ($, on) => {
+  const drawn = await boardWith($, on, null, { '/w/mission-control/mc.config.json': '{"appDir":"../app"}' })
+  expect(drawn.includes('Daily production database backup')).toBe(true)
 })

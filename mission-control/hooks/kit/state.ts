@@ -15,6 +15,7 @@ export const DEFAULT_SETTINGS: Settings = {
   costumes: {},
   agentNames: {},
   statusLine: { where: true, session: true, today: true, context: true, limits: true, lastTurn: true, idle: true, compactions: true, agents: true, cacheTtl: '1h', layout: 'detailed', git: 'chips' },
+  boardSource: 'auto',
 }
 export const DEFAULT_PANEL: PanelState = { tab: 'agents', isCompact: false, isDoneCollapsed: true, expanded: {}, boardFilter: 'all' }
 

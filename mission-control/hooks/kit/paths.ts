@@ -32,6 +32,31 @@ export function tmpOf(windows: boolean, env: { tmpdir?: string; temp?: string; t
   return pick ? slash(pick) : ''
 }
 
+// The parent folder of a path ('' for a root).
+export const parentOf = (p: string): string => {
+  const s = slash(p)
+  const i = s.lastIndexOf('/')
+  return i > 0 ? s.slice(0, i) : ''
+}
+
+// `rel` resolved against the folder `base`, with "." and ".." folded; an absolute `rel` as it is.
+export function resolveIn(base: string, rel: string): string {
+  const r = slash(rel)
+  if (/^([A-Za-z]:)?\//.test(r)) return r
+  const out = slash(base).split('/')
+  for (const part of r.split('/')) {
+    if (part === '..') { if (out.length > 1) out.pop() }
+    else if (part && part !== '.') out.push(part)
+  }
+  return out.join('/')
+}
+
+// The same folder, whatever the slashes and (on Windows) the letter case.
+export const samePath = (a: string, b: string): boolean => {
+  const x = slash(a), y = slash(b)
+  return isWinPath(x) || isWinPath(y) ? x.toLowerCase() === y.toLowerCase() : x === y
+}
+
 // "~" and "~/x" become the home folder; anything else is returned as it is.
 export function expandHome(p: string, home: string): string {
   if (!home) return p

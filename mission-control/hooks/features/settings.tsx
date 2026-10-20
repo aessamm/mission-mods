@@ -81,7 +81,7 @@ const WARN: Option[] = ['0.5', '0.7', '0.8', '0.9'].map(v => ({ value: v, label:
 const SHOW: { id: keyof Settings['show']; name: string; hint: string }[] = [
   { id: 'agents', name: 'Agents', hint: 'Sub-agents with their characters' },
   { id: 'delegations', name: 'Delegations', hint: 'Codex, agy, OpenCode and Claude tasks' },
-  { id: 'board', name: 'Board', hint: 'Tickets from .ops/tickets' },
+  { id: 'board', name: 'Board', hint: 'GitHub issues through Mission Control, or .ops/tickets' },
   { id: 'log', name: 'Daily log', hint: 'Saved per project, used by /standup' },
   { id: 'statusLine', name: 'Status line', hint: 'The line above the prompt' },
   { id: 'toastsAll', name: 'Toasts for every finished agent', hint: 'Off: only for agents that need you' },
@@ -183,6 +183,8 @@ async function renderSettings($: EngineInterface, c: TabCtx, s: Settings): Promi
       {section(c, look, 'show', 'Panel', 'Turn each part of Mission Control on or off.', true)}
       {SHOW.map(r => row(c, look, `show-${r.id}`, r.name, r.hint, 150,
         onOff(c, `show-${r.id}`, s.show[r.id], v => set(x => ({ ...x, show: { ...x.show, [r.id]: v } })))))}
+      {row(c, look, 'board-source', 'Board reads', s.boardSource === 'ops' ? 'Tickets from .ops/tickets only' : 'GitHub issues from Mission Control’s cache when this repo has one, else .ops/tickets', 260,
+        segmented(c, 'board-source', [['auto', 'GitHub, else .ops'], ['ops', '.ops only']], s.boardSource, v => set(x => ({ ...x, boardSource: v as Settings['boardSource'] }))))}
 
       {section(c, look, 'statusline', 'Status line', s.show.statusLine ? 'Choose what the line above the prompt shows.' : 'The status line is off. Pick a layout below to show it again.')}
       {row(c, look, 'sl-layout', 'Layout', !s.show.statusLine ? 'Hidden: no line above the prompt. Pick a layout to bring it back' : s.statusLine.layout === 'compact' ? 'One line: where, the meters, cost and agents' : s.statusLine.layout === 'semi' ? 'Two lines: where and session, then the meters and agents' : 'Several lines with every part you keep on', 360,

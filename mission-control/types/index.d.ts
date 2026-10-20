@@ -78,8 +78,9 @@ export type Delegation = {
   error?: string
 }
 
-// ---------------------------------------------------------------- board (.ops/)
-export type TicketStatus = 'todo' | 'ready' | 'in_progress' | 'in_review' | 'rework' | 'done' | 'blocked'
+// ---------------------------------------------------------------- board (GitHub issues or .ops/)
+// 'waiting' is a GitHub board's "Waiting on owner" column.
+export type TicketStatus = 'todo' | 'ready' | 'in_progress' | 'in_review' | 'rework' | 'waiting' | 'done' | 'blocked'
 export type Ticket = {
   id: string
   title: string
@@ -91,8 +92,13 @@ export type Ticket = {
   estimate?: string
   dependsOn?: string[]       // depends_on: the tickets this one waits for
   model?: string             // filled at dispatch, e.g. gpt-x / high
+  labels?: string[]          // a GitHub issue's labels, prefix dropped ("p1", "ops")
+  url?: string               // a GitHub issue's page
   path: string
 }
+// Where the board's tickets came from: Mission Control's cache of a GitHub repo's issues
+// and its project board, or the repo's .ops/tickets.
+export type BoardSource = { kind: 'github'; repo: string; board?: string; url?: string; fetchedAt: number } | { kind: 'ops' }
 // A line of .ops/memory/DECISIONS.md: "## D-014 — title (2026-09-21)".
 export type DecisionNote = { id: string; title: string; date?: string }
 // What .ops/runs/<ticket>/*.json says about one agent.
@@ -108,6 +114,7 @@ export type BoardSnapshot = {
   root: string               // repo root that holds .ops/
   project: string
   tickets: Ticket[]
+  source?: BoardSource       // absent: .ops (a snapshot from before 0.10)
   activity: ActivityEvent[]  // newest first, at most 30
   decisions?: DecisionNote[] // newest first, at most 3
   agentStats?: AgentRunStats[]
@@ -145,6 +152,7 @@ export type Settings = {
   costumes: Record<string, string>   // role -> costume role key
   agentNames: Record<string, string> // lowercase role (or 'main') -> names, comma separated
   statusLine: StatusLineParts
+  boardSource: 'auto' | 'ops' // auto: GitHub issues when Mission Control has them, else .ops/tickets
 }
 
 // A Mission Mods mod as Info shows it: built and on, built and off, in the marketplace but
