@@ -28,6 +28,13 @@ test('standup text parses into sections and falls back to a plain list', () => {
   const plain = plainSections({ day: addEntry(emptyDay('d'), { at: 1, project: 'A', kind: 'agent', text: 'x' }), board: null })
   expect(plain.map(x => x.heading)).toEqual(['Done', 'Doing', 'Blocked', 'Next'])
   expect(plain[0]!.lines[0]).toBe('A: x')
+  const board = { root: '/w/app', project: 'app', activity: [], readAt: 0, tickets: [
+    { id: '#42', title: 'Paste the secret', status: 'waiting' as const, path: 'u' },
+    { id: '#35', title: 'Backup', status: 'in_progress' as const, path: 'u' },
+  ] }
+  const gh = plainSections({ day: emptyDay('d'), board })
+  expect(gh[1]!.lines).toEqual(['app: #35 Backup'])
+  expect(gh[2]!.lines).toEqual(['app: #42 Paste the secret (waiting on owner)'])
 })
 
 test('the Log tab, /standup and /handoff work from a session and a finished agent', async ($, on) => {

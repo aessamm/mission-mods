@@ -1,19 +1,23 @@
-// Release Autopilot: /ship gathers facts read-only (git, .ops tickets), asks the model for a
-// PR description, changelog and a client update in Arabic and English, stores the result as
-// the lastDoc atom and draws it as a card in the transcript. Nothing here changes the repo.
+// Release Autopilot: /ship gathers facts read-only (git, the GitHub issues its commits name or
+// .ops tickets), asks the model for a PR description, changelog and a client update in Arabic
+// and English, stores the result as the lastDoc atom and draws it as a card in the transcript.
+// Nothing here changes the repo.
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On } from 'claude-code'
 
-import type { CommandDoc } from '../../types'
+import type { BoardSnapshot, CommandDoc, Ticket } from '../../types'
 import { chip, svg } from '../kit/draw'
 
 const lastDoc = atom({ plugin: 'mission-control', key: 'lastDoc' } as const, null as CommandDoc | null)
+const board = atom({ plugin: 'mission-control', key: 'board' } as const, null as BoardSnapshot | null)
 
 const MODEL = 'claude-sonnet-5-5'
 const MAX_COMMITS = 60
 const MAX_DEPTH = 4
 
 export type ShipTicket = { id: string; title: string }
+// A GitHub issue the branch's commits name, with its board column when the board knows it.
+export type ShipIssue = ShipTicket & { status?: string }
 export type ShipFacts = {
   branch: string
   base: string
@@ -22,6 +26,7 @@ export type ShipFacts = {
   shortstat: string
   done: ShipTicket[]
   review: ShipTicket[]
+  issues?: ShipIssue[]       // set when the board reads GitHub; done and review are then empty
 }
 export type ShipDraft = { title: string; pr: string; changelog: string; clientAr: string; clientEn: string }
 
@@ -65,12 +70,33 @@ export function parseDraft(raw: string): ShipDraft | undefined {
 
 const commitText = (line: string) => line.replace(/^[0-9a-f]{6,40}\s+/, '')
 
+// The issues the commits name (`#28` in a subject), in first-seen order, titled from the board's
+// tickets; one the board does not have is titled by the first commit that names it.
+export function issuesOf(commits: string[], tickets: Ticket[]): ShipIssue[] {
+  const byId = new Map(tickets.map(t => [t.id, t] as const))
+  const out = new Map<string, ShipIssue>()
+  for (const line of commits) {
+    const subject = commitText(line)
+    for (const m of subject.matchAll(/(?:^|[\s(,])#(\d{1,7})\b/g)) {
+      const id = `#${m[1]}`
+      if (out.has(id)) continue
+      const t = byId.get(id)
+      out.set(id, t ? { id, title: t.title, status: t.status } : { id, title: subject })
+    }
+  }
+  return [...out.values()]
+}
+const STATUS_WORD: Record<string, string> = { todo: 'to do', in_progress: 'in progress', in_review: 'in review', waiting: 'waiting on owner', blocked: 'blocked', done: 'done' }
+const issueLine = (i: ShipIssue) => `- ${i.id}: ${i.title}${i.status ? ` (${STATUS_WORD[i.status] ?? i.status})` : ''}`
+
 export function fallbackDraft(f: ShipFacts): ShipDraft {
   const subjects = f.commits.map(commitText)
   const shown = subjects.slice(0, 12)
   const more = subjects.length - shown.length
+  const issues = f.issues ?? []
   const tickets = f.done.slice(0, 12).map(t => `- ${t.id}: ${t.title}`)
-  const title = f.done.length === 1 && f.done[0] ? f.done[0].title : `Release from ${f.branch}`
+  const one = issues.length === 1 ? issues[0] : f.done.length === 1 ? f.done[0] : undefined
+  const title = one ? one.title : `Release from ${f.branch}`
   const changelog = (shown.length ? shown : ['No commits found']).map(s => `- ${s}`).concat(more > 0 ? [`- and ${more} more`] : []).join('\n')
   const pr = [
     '## Summary',
@@ -79,8 +105,9 @@ export function fallbackDraft(f: ShipFacts): ShipDraft {
     '## Changes',
     changelog,
     ...(tickets.length ? ['', '## Tickets closed', ...tickets] : []),
+    ...(issues.length ? ['', '## Issues', ...issues.slice(0, 20).map(issueLine)] : []),
   ].join('\n')
-  const n = f.done.length || f.commitCount
+  const n = issues.length || f.done.length || f.commitCount
   return {
     title,
     pr,
@@ -95,7 +122,7 @@ export function buildPrompt(f: ShipFacts): string {
     'You are preparing a software release. From the facts below write the release documents.',
     'Reply with ONE JSON object and nothing else, with exactly these string keys:',
     '"title": a short release title in sentence case,',
-    '"pr": the pull request description in markdown (a one-line summary, then a bullet list of what changed, then tickets closed),',
+    '"pr": the pull request description in markdown (a one-line summary, then a bullet list of what changed, then the tickets closed or the GitHub issues it refers to, written "#N"),',
     '"changelog": markdown bullets, one per user-visible change,',
     '"clientAr": a client update in Arabic, plain and non-technical, 3 to 5 sentences, no code or ticket ids,',
     '"clientEn": the same client update in English.',
@@ -107,9 +134,13 @@ export function buildPrompt(f: ShipFacts): string {
     `Commits (${f.commitCount}${f.commitCount > f.commits.length ? `, newest ${f.commits.length} shown` : ''}):`,
     ...(f.commits.length ? f.commits : ['(none)']),
     '',
-    `Tickets closed (${f.done.length}):`,
-    ...(f.done.length ? f.done.slice(0, 40).map(t => `- ${t.id}: ${t.title}`) : ['(none)']),
-    ...(f.review.length ? ['', `Tickets still in review (${f.review.length}):`, ...f.review.slice(0, 20).map(t => `- ${t.id}: ${t.title}`)] : []),
+    ...(f.issues
+      ? [`GitHub issues the commits refer to, with their board column (${f.issues.length}):`, ...(f.issues.length ? f.issues.slice(0, 40).map(issueLine) : ['(none)'])]
+      : [
+        `Tickets closed (${f.done.length}):`,
+        ...(f.done.length ? f.done.slice(0, 40).map(t => `- ${t.id}: ${t.title}`) : ['(none)']),
+        ...(f.review.length ? ['', `Tickets still in review (${f.review.length}):`, ...f.review.slice(0, 20).map(t => `- ${t.id}: ${t.title}`)] : []),
+      ]),
   ].join('\n')
 }
 
@@ -130,6 +161,7 @@ export function makeDoc(f: ShipFacts, d: ShipDraft, at: number): CommandDoc {
       commits: String(f.commitCount),
       tickets: String(f.done.length),
       review: String(f.review.length),
+      ...(f.issues ? { issues: String(f.issues.length), open: String(f.issues.filter(i => i.status && i.status !== 'done' && i.status !== 'in_review').length) } : {}),
       shortstat: f.shortstat,
       view: 'pr',
       lang: 'ar',
@@ -148,8 +180,9 @@ export function docMarkdown(doc: CommandDoc): string {
     `${x.branch ?? ''} into ${x.base ?? ''} · ${plural(Number(x.commits ?? 0), 'commit')}${x.shortstat ? ` · ${x.shortstat}` : ''}`,
     '',
     '## Checks',
-    `- ${plural(n, 'ticket')} closed`,
-    ...(r ? [`- Warning: ${plural(r, 'ticket')} still in review`] : []),
+    ...(x.issues !== undefined
+      ? [`- ${plural(Number(x.issues), 'GitHub issue')} named in the commits`, ...(Number(x.open) ? [`- Warning: ${plural(Number(x.open), 'issue')} not yet in Review or Done on the board`] : [])]
+      : [`- ${plural(n, 'ticket')} closed`, ...(r ? [`- Warning: ${plural(r, 'ticket')} still in review`] : [])]),
     '- Tests: not run by Mission Control',
     '',
     `## ${SECTIONS[0]}`,
@@ -188,18 +221,23 @@ async function walk($: EngineInterface, dir: string, depth: number, out: string[
   }
 }
 
-async function gather($: EngineInterface, root: string, arg: string): Promise<ShipFacts> {
-  const branch = (await git($, root, ['rev-parse', '--abbrev-ref', 'HEAD'])).out || 'HEAD'
+// `here` is where git runs: the session's folder, so a linked worktree ships its own branch
+// (the repo root is the main checkout's). `.ops` is read from the repo root.
+async function gather($: EngineInterface, root: string, here: string, arg: string, snap: BoardSnapshot | null): Promise<ShipFacts> {
+  const branch = (await git($, here, ['rev-parse', '--abbrev-ref', 'HEAD'])).out || 'HEAD'
   let base = arg.trim().split(/\s+/)[0] ?? ''
   if (!base) {
     base = 'main'
-    if (!(await git($, root, ['rev-parse', '--verify', '--quiet', 'main'])).ok && (await git($, root, ['rev-parse', '--verify', '--quiet', 'master'])).ok) base = 'master'
+    if (!(await git($, here, ['rev-parse', '--verify', '--quiet', 'main'])).ok && (await git($, here, ['rev-parse', '--verify', '--quiet', 'master'])).ok) base = 'master'
   }
   const range = `${base}..HEAD`
-  const log = await git($, root, ['log', '--oneline', `-n${MAX_COMMITS}`, range])
-  const count = await git($, root, ['rev-list', '--count', range])
-  const stat = await git($, root, ['diff', '--shortstat', `${base}...HEAD`])
+  const log = await git($, here, ['log', '--oneline', `-n${MAX_COMMITS}`, range])
+  const count = await git($, here, ['rev-list', '--count', range])
+  const stat = await git($, here, ['diff', '--shortstat', `${base}...HEAD`])
   const commits = log.ok ? log.out.split('\n').map(l => l.trim()).filter(Boolean) : []
+  const facts = { branch, base, commits, commitCount: Number(count.out) || commits.length, shortstat: stat.out }
+  // With the board on GitHub, .ops/tickets is history: the release is the issues its commits name.
+  if (snap?.source?.kind === 'github') return { ...facts, done: [], review: [], issues: issuesOf(commits, snap.tickets) }
   const files: string[] = []
   await walk($, `${root}/.ops/tickets`, 0, files)
   const done: ShipTicket[] = [], review: ShipTicket[] = []
@@ -210,7 +248,7 @@ async function gather($: EngineInterface, root: string, arg: string): Promise<Sh
     if (status === 'done') done.push(ticket)
     else if (status === 'in_review') review.push(ticket)
   }
-  return { branch, base, commits, commitCount: Number(count.out) || commits.length, shortstat: stat.out, done, review }
+  return { ...facts, done, review }
 }
 
 // ---------------------------------------------------------------- hooks
@@ -228,7 +266,8 @@ export function registerShip(on: On): void {
   on('command.run', { command: 'ship' }, async ($, e) => {
     const repo = await $.session.repo()
     if (!repo) return { text: '/ship needs a git repository. Open a session inside one and try again.' }
-    const facts = await gather($, repo.root, String(e.args ?? ''))
+    const here = await $.session.cwd().catch(() => repo.root)
+    const facts = await gather($, repo.root, here, String(e.args ?? ''), await read($, board))
     let draft: ShipDraft | undefined
     try {
       const r = await $.model.complete({ model: MODEL, prompt: buildPrompt(facts), maxTokens: 2000 })
@@ -260,9 +299,11 @@ export function registerShip(on: On): void {
     const nDone = Number(x.tickets ?? 0), nReview = Number(x.review ?? 0), nCommits = Number(x.commits ?? 0)
     const set = (patch: Record<string, string>) => void update($, lastDoc, d => (d && d.kind === 'ship' ? { ...d, extra: { ...d.extra, ...patch } } : d))
 
+    const nOpen = Number(x.open ?? 0)
     const chips: { text: string; tone: 'ok' | 'warn' | 'plain'; icon: string; glyph: string }[] = [
-      { text: `${plural(nDone, 'ticket')} closed`, tone: 'ok', icon: 'check', glyph: '✓' },
-      ...(nReview ? [{ text: `${nReview} still in review`, tone: 'warn' as const, icon: 'alert', glyph: '⚠' }] : []),
+      ...(x.issues !== undefined
+        ? [{ text: plural(Number(x.issues), 'issue'), tone: 'ok' as const, icon: 'check', glyph: '✓' }, ...(nOpen ? [{ text: `${nOpen} not in Review yet`, tone: 'warn' as const, icon: 'alert', glyph: '⚠' }] : [])]
+        : [{ text: `${plural(nDone, 'ticket')} closed`, tone: 'ok' as const, icon: 'check', glyph: '✓' }, ...(nReview ? [{ text: `${nReview} still in review`, tone: 'warn' as const, icon: 'alert', glyph: '⚠' }] : [])]),
       { text: 'Tests: not run by Mission Control', tone: 'plain', icon: 'run', glyph: '?' },
     ]
     let checks

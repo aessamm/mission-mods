@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { TestBody } from 'claude-code/testing'
 
-import { fallbackDraft, makeDoc, openPrPrompt, parseDraft, parseFrontmatter, ticketOf } from '../hooks/features/ship'
+import { buildPrompt, docMarkdown, fallbackDraft, issuesOf, makeDoc, openPrPrompt, parseDraft, parseFrontmatter, ticketOf } from '../hooks/features/ship'
 import type { ShipFacts } from '../hooks/features/ship'
 
 const FACTS: ShipFacts = {
@@ -13,6 +13,32 @@ const FACTS: ShipFacts = {
   done: [{ id: 'MC-1', title: 'Tabs' }],
   review: [{ id: 'MC-2', title: 'Budget' }],
 }
+
+test('with a GitHub board, the release is the issues its commits name', () => {
+  const tickets = [
+    { id: '#28', title: 'Mission Control reads GitHub', status: 'in_review' as const, path: 'u' },
+    { id: '#35', title: 'Daily DB backup', status: 'in_progress' as const, path: 'u' },
+  ]
+  const commits = ['3f5437c ci: Actions CI, daily DB backup check (#34, #35)', 'aa11bb2 feat(github): issues view (#28)', 'cc33dd4 fix: color #fff in the header', 'ee55ff6 chore: tidy (#35)']
+  const issues = issuesOf(commits, tickets)
+  expect(issues).toEqual([
+    { id: '#34', title: 'ci: Actions CI, daily DB backup check (#34, #35)' },
+    { id: '#35', title: 'Daily DB backup', status: 'in_progress' },
+    { id: '#28', title: 'Mission Control reads GitHub', status: 'in_review' },
+  ])
+  const facts: ShipFacts = { ...FACTS, commits, commitCount: 4, done: [], review: [], issues }
+  const d = fallbackDraft(facts)
+  expect(d.pr.includes('## Issues\n- #34: ci: Actions CI')).toBe(true)
+  expect(d.pr.includes('- #35: Daily DB backup (in progress)')).toBe(true)
+  expect(d.pr.includes('Tickets closed')).toBe(false)
+  const doc = makeDoc(facts, d, 1)
+  expect([doc.extra?.issues, doc.extra?.open]).toEqual(['3', '1'])
+  const md = docMarkdown(doc)
+  expect(md.includes('- 3 GitHub issues named in the commits')).toBe(true)
+  expect(md.includes('- Warning: 1 issue not yet in Review or Done on the board')).toBe(true)
+  expect(buildPrompt(facts).includes('GitHub issues the commits refer to, with their board column (3):')).toBe(true)
+  expect(buildPrompt(FACTS).includes('Tickets closed (1):')).toBe(true)
+})
 
 test('frontmatter, tickets and model JSON parse defensively', async () => {
   expect(parseFrontmatter('---\nid: MC-1\ntitle: "Tabs: panel"\nstatus: done\n---\nbody: x')).toEqual({ id: 'MC-1', title: 'Tabs: panel', status: 'done' })

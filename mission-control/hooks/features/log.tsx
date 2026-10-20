@@ -85,6 +85,7 @@ export function plainSections({ day, board: b }: StandupInput): CommandDoc['sect
     const l = `${b!.project}: ${t.id} ${t.title}${t.assignee ? ` (${t.assignee})` : ''}`
     if (t.status === 'in_progress' || t.status === 'in_review' || t.status === 'rework') doing.push(l)
     else if (t.status === 'blocked') blocked.push(l)
+    else if (t.status === 'waiting') blocked.push(`${l} (waiting on owner)`)
     else if (t.status === 'ready' || t.status === 'todo') next.push(l)
   }
   return [
