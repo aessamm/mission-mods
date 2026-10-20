@@ -44,7 +44,7 @@ const joinPath = (a: string, b: string): string => `${a.replace(/[\\/]+$/, '')}/
 const isAbs = (p: string): boolean => /^([A-Za-z]:)?[\\/]/.test(p) || p.startsWith('~')
 const firstLine = (s: string): string => s.split('\n').find(l => l.trim() !== '')?.trim() ?? ''
 
-export type RelayCall = { tool: DelegationTool; cd?: string; brief?: string; model?: string; outDir?: string; heredoc?: string }
+export type RelayCall = { tool: DelegationTool; cd?: string; brief?: string; model?: string; outDir?: string; heredoc?: string; issue?: string }
 
 // Splits on whitespace outside quotes. No escape handling, so Windows paths survive.
 export function tokenize(cmd: string): string[] {
@@ -84,15 +84,22 @@ export function parseRelay(command: unknown): RelayCall | null {
     return a.includes('=') ? a.slice(name.length + 1) : args[i + 1]
   }
   const hd = /<<-?\s*['"]?(\w+)['"]?[^\n]*\n([\s\S]*?)\n\s*\1\b/.exec(cmd)
-  return { tool, cd: flag('--cd'), brief: flag('--brief'), model: flag('--model'), outDir: flag('--out-dir'), heredoc: hd?.[2] }
+  // A run wrapped by Mission Control's run-log names its GitHub issue: `run-log.mjs start --issue 28`.
+  const issue = /--issue[=\s]+["']?#?(\d{1,7})\b/.exec(cmd)?.[1]
+  return { tool, cd: flag('--cd'), brief: flag('--brief'), model: flag('--model'), outDir: flag('--out-dir'), heredoc: hd?.[2], ...(issue ? { issue } : {}) }
 }
 
 export function taskOf(brief: string): string {
   const line = firstLine(brief).replace(/^[#>*\-\s]+/, '').replace(/^(task|title|ticket)\s*:\s*/i, '').trim()
   return line ? clip(line, 90) : DEFAULT_TASK
 }
-export function ticketOf(brief: string): string | undefined {
-  return /\b[A-Z][A-Z0-9]{0,6}-\d{2,5}\b/.exec(brief.slice(0, 800))?.[0]
+// What the run is for: the GitHub issue the command names, else one the brief names (#28),
+// else an .ops ticket id (M0-007).
+export function ticketOf(brief: string, issue?: string): string | undefined {
+  if (issue) return `#${issue}`
+  const head = brief.slice(0, 800)
+  const gh = /(?:^|[\s(])#(\d{1,7})\b/.exec(head)?.[1]
+  return gh ? `#${gh}` : /\b[A-Z][A-Z0-9]{0,6}-\d{2,5}\b/.exec(head)?.[0]
 }
 
 export function parseShortstat(s: string): { files: number; added: number; removed: number } | undefined {
@@ -159,6 +166,35 @@ export function fromRun(raw: unknown, id: string, project: string, cwd: string, 
     ...(str(raw.branch) ? { branch: str(raw.branch) } : {}),
   }
 }
+
+// A finished run from a line Mission Control's run-log.mjs wrote to .ops/log/activity.jsonl
+// (`source: "run-log"`, event run.completed): runs any session delegated, joined on the issue.
+// `titles` names an issue by the board's tickets ("#28" -> its title). Null for anything else.
+export function fromRunLog(raw: unknown, titles: Map<string, string>): Delegation | null {
+  if (!isObj(raw) || raw.source !== 'run-log' || raw.event !== 'run.completed') return null
+  const d = isObj(raw.detail) ? raw.detail : {}
+  const who = `${str(d.agent)} ${str(raw.actor)}`
+  const tool: DelegationTool | undefined = /codex/i.test(who) ? 'codex' : /agy|antigravity/i.test(who) ? 'agy' : /opencode/i.test(who) ? 'opencode' : /claude/i.test(who) ? 'claude' : undefined
+  const ended = Date.parse(str(raw.ts))
+  if (!tool || !Number.isFinite(ended)) return null
+  const issue = num(raw.issue)
+  const ticket = issue ? `#${issue}` : str(raw.ticket) || undefined
+  const cwd = str(d.worktree).replace(/\\/g, '/')
+  const secs = num(d.durationSec)
+  const files = num(d.touchedFiles)
+  return {
+    id: `log:${tool}:${str(raw.ts)}`, tool, task: (ticket && titles.get(ticket)) || (ticket ? `Issue ${ticket}` : DEFAULT_TASK),
+    ...(ticket ? { ticket } : {}), project: baseName(cwd) || 'project', cwd,
+    startedAt: ended - (secs && secs > 0 ? secs * 1000 : 1), endedAt: ended, status: 'done', now: 'Finished',
+    ...(str(d.branch) && str(d.branch) !== 'HEAD' ? { branch: str(d.branch) } : {}), ...(str(d.model) ? { model: str(d.model) } : {}),
+    ...(files !== undefined ? { files } : {}),
+  }
+}
+
+// The same run seen twice: tracked live in this session, and logged by run-log when it ended.
+export const sameRun = (a: Delegation, b: Delegation): boolean =>
+  a.tool === b.tool && a.cwd.replace(/\\/g, '/').toLowerCase() === b.cwd.replace(/\\/g, '/').toLowerCase()
+  && (Math.abs(a.startedAt - b.startedAt) < 10 * 60_000 || Math.abs((a.endedAt ?? a.startedAt) - (b.endedAt ?? b.startedAt)) < 10 * 60_000)
 
 const elapsedOf = (d: Delegation, at: number): number => Math.max(0, (d.endedAt ?? at) - d.startedAt)
 const toolLabel = (d: Delegation): string => TOOLS[d.tool]?.name ?? d.tool
@@ -243,7 +279,7 @@ async function record($: EngineInterface, command: unknown, toolUseId: unknown):
   const out = call.outDir ? fix(call.outDir) : undefined
   const resultPath = out ? joinPath(isAbs(out) ? out : joinPath(root, out), 'result.json') : undefined
   const d: Delegation = {
-    id, tool: call.tool, task: taskOf(brief), ticket: ticketOf(brief), project: baseName(cwd) || 'project', cwd,
+    id, tool: call.tool, task: taskOf(brief), ticket: ticketOf(brief, call.issue), project: baseName(cwd) || 'project', cwd,
     resultPath, startedAt: at, status: 'running', now: 'Starting', ...(call.model ? { model: call.model } : {}),
   }
   await update($, delegations, m => ({ ...m, [id]: d }))
@@ -298,7 +334,7 @@ async function check($: EngineInterface, d: Delegation, claimed: Set<string>): P
         const change = applyResult(raw, await $.clock.now())
         if (d.task === DEFAULT_TASK && isObj(raw)) {
           const brief = await readBrief($, str(raw.briefPath), d.cwd)
-          if (brief) Object.assign(change, { task: taskOf(brief), ticket: ticketOf(brief) })
+          if (brief) Object.assign(change, { task: taskOf(brief), ticket: d.ticket?.startsWith('#') ? d.ticket : ticketOf(brief) })
         }
         await patch($, d.id, { ...change, resultPath: path })
         // The relay's touched-files count is replaced by real line counts when git has them.
@@ -350,7 +386,36 @@ async function loadOpsRuns($: EngineInterface): Promise<void> {
   } catch { /* no .ops here */ }
 }
 
+// Today's runs that Mission Control's run-log.mjs logged, from any session, skipping the
+// ones this session already follows.
+async function loadRunLog($: EngineInterface): Promise<void> {
+  try {
+    const repo = await $.session.repo()
+    if (!repo) return
+    const src = await $.fs.read(joinPath(repo.root, '.ops/log/activity.jsonl')).catch(() => '')
+    if (typeof src !== 'string' || !src.includes('"run-log"')) return
+    const today = localDay(await $.clock.now())
+    const titles = new Map(((await read($, board))?.tickets ?? []).map(t => [t.id, t.title] as const))
+    const found: Delegation[] = []
+    for (const line of src.split(/\r?\n/).slice(-400)) {
+      if (!line.includes('"run-log"')) continue
+      try {
+        const d = fromRunLog(JSON.parse(line), titles)
+        if (d && localDay(d.endedAt ?? d.startedAt) === today) found.push(d)
+      } catch { /* a bad line */ }
+    }
+    if (found.length === 0) return
+    const known = Object.values(await read($, delegations))
+    const fresh = found.filter(d => !known.some(k => k.id === d.id || (!k.id.startsWith('log:') && sameRun(k, d))))
+    if (fresh.length === 0) return
+    await update($, delegations, m => ({ ...m, ...Object.fromEntries(fresh.map(d => [d.id, d] as const)) }))
+    await update($, delegationOrder, l => [...l, ...fresh.map(d => d.id).filter(id => !l.includes(id))])
+  } catch { /* no log here */ }
+}
+
+const RUN_LOG_MS = 30_000
 let timer: { cancel: () => void } | undefined
+let runLogTimer: { cancel: () => void } | undefined
 
 export function registerDelegations(on: On): void {
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
@@ -365,7 +430,10 @@ export function registerDelegations(on: On): void {
   on('session.start', { isInteractive: [true, false] }, async ($, e, next) => {
     timer?.cancel()
     timer = $.clock.every(POLL_MS, () => void tick($))
+    runLogTimer?.cancel()
+    runLogTimer = $.clock.every(RUN_LOG_MS, () => void loadRunLog($))
     void loadOpsRuns($)
+    void loadRunLog($)
     void tick($)
     return next(e)
   })

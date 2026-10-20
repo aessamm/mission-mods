@@ -60,7 +60,7 @@ export type Delegation = {
   id: string                 // the Bash tool_use_id that started it
   tool: DelegationTool
   task: string               // first line of the brief, or the ticket title
-  ticket?: string            // M0-007 when the brief names one
+  ticket?: string            // #28 (a GitHub issue) or M0-007 when the run or its brief names one
   project: string            // repo folder name from --cd
   cwd: string
   branch?: string
