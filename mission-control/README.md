@@ -15,7 +15,9 @@ Everything runs locally.
   doing, time, tokens, cost, progress, and a timeline of recent steps. Change an agent's
   model or effort, send it a note, retry it or stop it.
 - **Delegations**: tasks handed to Codex, Antigravity (agy), OpenCode or another Claude
-  through the delegate skills, followed to their result with diff and test counts.
+  through the delegate skills, followed to their result with diff and test counts, with the
+  GitHub issue each one is for. Runs other sessions logged through Mission Control's
+  `run-log.mjs` today show up too.
 - **Board**: the repository's GitHub issues in their project-board columns (doing, review,
   waiting on owner, blocked, to do) when a Mission Control folder has them cached, else the
   tickets in its `.ops/` folder with what each one is blocked by; plus the activity log, the
@@ -39,14 +41,16 @@ installers and the terminal command. Then start a new session and type `/mission
 | `/mission [tab]` | Open the panel, or jump to a tab: agents, delegations, board, log, settings, help, info |
 | `/standup` | Today across every project: done, doing, blocked, next |
 | `/handoff [note]` | Write the note the next session starts from |
-| `/ship` | PR description, changelog and a client update, after checks |
+| `/ship` | PR description, changelog and a client update, after checks (with a GitHub board: the issues the branch's commits name, and which are not in Review yet) |
 | `/budget 5h <percent>` | When new agents pause: a share of the 5-hour window, `week <percent>`, `plan`, `auto` or a daily dollar amount |
 
 ## Companion skills
 
 The plugin ships five skills: `ai-team-project-kickoff`, which plans a project and writes
 the `.ops/` folder, and `codex-delegate`, `agy-delegate`, `opencode-delegate` and
-`claude-delegate`, which hand a coding task to that CLI. The delegate skills run only the
+`claude-delegate`, which hand a coding task to that CLI. When `MC_RUN_LOG` points at Mission
+Control's `run-log.mjs`, the Codex, agy and OpenCode skills also log each run's start and end
+to the project's activity log; without it they skip that step. The delegate skills run only the
 CLI you have installed (`codex`, `agy`, `opencode` or `claude`), under that CLI's own login,
 and need Node.js. Mission Control does not read those CLIs' keys or settings.
 
@@ -56,7 +60,7 @@ and need Node.js. Mission Control does not read those CLIs' keys or settings.
 
 Mission Control sends nothing over the network: no telemetry, no analytics, no calls to any
 server. `/standup` and `/handoff` give today's log, and `/ship` gives the branch's commits
-and tickets, to the session's own model through Claude Code's connection, the same way a
+and the tickets or GitHub issues they name, to the session's own model through Claude Code's connection, the same way a
 prompt you type is sent. The `www.w3.org` address in the code is the SVG namespace used to
 draw the panel; nothing is fetched from it.
 
@@ -69,7 +73,7 @@ Only `git`, with fixed read-only commands:
   --abbrev-ref HEAD` when it starts, then `git -C <folder> diff --shortstat` every 20
   seconds. The folder is the one the delegate command was given.
 - On `/ship`: `git rev-parse`, `git log`, `git rev-list --count` and `git diff --shortstat`
-  between the base branch and `HEAD`.
+  between the base branch and `HEAD`, in the session's folder (a worktree ships its own branch).
 
 It never merges, pushes or opens a pull request. Buttons for those put the request in the
 prompt, and nothing happens until you send it.

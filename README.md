@@ -11,7 +11,9 @@ Your agent team at a glance, in a side panel and a status line above the prompt.
   doing, time, tokens, cost, progress, and a timeline of recent steps. Change an agent's
   model or effort, send it a note, or stop it.
 - **Delegations** — tasks handed to Codex, Antigravity (agy), OpenCode or another Claude
-  through the delegate skills, followed to their result with diff and test counts.
+  through the delegate skills, followed to their result with diff and test counts, with the
+  GitHub issue each one is for. Runs other sessions logged through Mission Control's
+  `run-log.mjs` today show up too.
 - **Board** — the repo's GitHub issues in their board columns when Mission Control has them
   cached, else tickets from the repo's `.ops/` folder: doing, review, waiting on owner,
   blocked, to do, the agents' run stats and the latest decisions.
@@ -85,7 +87,7 @@ Save, quit the Claude desktop app completely and open it again.
 | `/mission [tab]` | Open the panel, or jump to a tab: agents, delegations, board, log, settings, help, info |
 | `/standup` | Today across every project: done, doing, blocked, next |
 | `/handoff [note]` | Write the note the next session starts from |
-| `/ship` | PR description, changelog and a client update, after checks |
+| `/ship` | PR description, changelog and a client update, after checks (with a GitHub board: the issues the branch's commits name, and which are not in Review yet) |
 | `/budget 5h <percent>` | When new agents pause: a share of the 5-hour window, `week <percent>`, `plan`, `auto` or a daily dollar amount |
 
 ## Companion skills
