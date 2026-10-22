@@ -42,6 +42,60 @@ test('dependencies, decisions, run stats and milestones read the kickoff files',
   expect(s[1]).toMatchObject({ agent: 'agy', runs: 1, approved: 1, rateLimited: 1 })
 })
 
+// board-supervisor's table, as in this repo's docs/DECISIONS.md.
+const TABLE = `# Decisions
+
+Append-only.
+
+| ID | Date | Decision | Who |
+|---|---|---|---|
+| D-001 | 2026-10-20 | The Board reads GitHub issues from Mission Control's cache (\`github-tasks.json\`). | Owner |
+| D-011 | 2026-10-22 | Side sessions here cannot write to the GitHub board, so the supervisor moves their cards. | Sup, owner asleep |
+| D-012 | 2026-10-22 | board-supervisor in the mod: proposal in \`docs/board-supervisor-in-mod.md\`. | Sup, owner asleep |
+`
+
+test('decisions read from a D-### table, with or without a header, and beside headings', () => {
+  expect(parseDecisions(TABLE)).toEqual([
+    { id: 'D-012', title: 'board-supervisor in the mod: proposal in docs/board-supervisor-in-mod.md.', date: '2026-10-22' },
+    { id: 'D-011', title: 'Side sessions here cannot write to the GitHub board, so the supervisor moves their cards.', date: '2026-10-22' },
+    { id: 'D-001', title: "The Board reads GitHub issues from Mission Control's cache (github-tasks.json).", date: '2026-10-20' },
+  ])
+  // Columns in another order, named by the header.
+  expect(parseDecisions('| Who | Decision | ID | Date |\n|-|-|-|-|\n| Owner | Ship it | D-007 | 2026-10-01 |')).toEqual([{ id: 'D-007', title: 'Ship it', date: '2026-10-01' }])
+  // No header: the id cell, a date cell, and the longest other cell as the decision.
+  expect(parseDecisions('| D-003 | 2026-10-02 | Use the table form | Owner |')).toEqual([{ id: 'D-003', title: 'Use the table form', date: '2026-10-02' }])
+  // Headings and a table in one file keep the file's order; a fenced example table is skipped.
+  const mixed = `${DECISIONS}\n\`\`\`\n| D-999 | 2026-01-01 | example | x |\n\`\`\`\n| ID | Date | Decision |\n|---|---|---|\n| D-005 | 2026-09-24 | Tables from now on |\n`
+  expect(parseDecisions(mixed).map(d => d.id)).toEqual(['D-005', 'D-004', 'D-003'])
+  // Other tables in the file are not decisions.
+  expect(parseDecisions('| Agent | Runs |\n|---|---|\n| codex | 4 |')).toEqual([])
+})
+
+test('without .ops decisions the board reads docs/DECISIONS.md and says so', { timeoutMs: 20_000 }, async ($, on) => {
+  mock.clock(on)
+  on('session.start', () => ({ cwd: START.cwd }))
+  on('command.register', (_$, e) => ({ value: { command: e.name } }))
+  on('tool.register', () => ({ value: undefined as never }))
+  on('session.repo', () => ({ value: { root: '/repo', remote: null, internal: false } }))
+  on('fs.exists', () => ({ value: true }))
+  on('fs.list', (_$, e) => ({ value: e.path.endsWith('tickets') ? [file('M0-003.md')] : [] }))
+  on('fs.read', (_$, e) => {
+    const p = e.path.replace(/\\/g, '/')
+    return p.endsWith('M0-003.md') ? { value: ticket('M0-003', 'todo') } : p.endsWith('docs/DECISIONS.md') ? { value: TABLE } : { deny: 'ENOENT' }
+  })
+  await $.session.start(START)
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ plugin: 'mission-control', surface, ...PANE })
+    await ui.press({ key: 'tab-board' })
+    const drawn = JSON.stringify(await ui.drawn())
+    expect(drawn.includes('Latest decisions')).toBe(true)
+    expect(drawn.includes('D-012')).toBe(true)
+    expect(drawn.includes('docs/DECISIONS.md')).toBe(true)
+    expect(drawn.includes('.ops/memory/DECISIONS.md')).toBe(false)
+    await ui.unmount()
+  }
+})
+
 test('the board shows what a ticket is blocked by, the agents and the latest decisions', async ($, on) => {
   mock.clock(on)
   on('session.start', () => ({ cwd: START.cwd }))
@@ -68,6 +122,7 @@ test('the board shows what a ticket is blocked by, the agents and the latest dec
     expect(drawn.includes('Blocked by M0-003')).toBe(true)
     expect(drawn.includes('Latest decisions')).toBe(true)
     expect(drawn.includes('D-004')).toBe(true)
+    expect(drawn.includes('.ops/memory/DECISIONS.md')).toBe(true)
     expect(drawn.includes('100% approved')).toBe(true)
     await ui.unmount()
   }

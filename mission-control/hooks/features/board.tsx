@@ -126,18 +126,46 @@ export function blockedBy(t: Ticket, byId: Map<string, Ticket>): string[] {
   return (t.dependsOn ?? []).filter(d => byId.get(d)?.status !== 'done')
 }
 
-// DECISIONS.md headings, newest (last) first, skipping the format example in code fences.
+// A table row's cells: "| a | b |" -> ["a", "b"].
+const cellsOf = (line: string): string[] => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim())
+const plain = (s: string): string => s.replace(/`([^`]*)`/g, '$1').replace(/\*\*([^*]+)\*\*/g, '$1').trim()
+
+// DECISIONS.md entries, newest (last) first, skipping the format example in code fences. Two
+// forms, mixed freely: "## D-014 — title (2026-09-21)" headings, and board-supervisor's
+// "| D-014 | 2026-09-21 | decision | who |" table, whose header row names the columns.
 export function parseDecisions(src: string, limit = 3): DecisionNote[] {
   const out: DecisionNote[] = []
   let isFence = false
+  let cols: { id: number; date: number; title: number } | null = null
   for (const line of src.split(/\r?\n/)) {
     if (/^\s*```/.test(line)) { isFence = !isFence; continue }
     if (isFence) continue
     const m = /^##\s+(D-\d+)\s*[—–:-]+\s*(.+?)\s*(?:\((\d{4}-\d{2}-\d{2})\))?\s*$/.exec(line)
-    if (m) out.push({ id: m[1]!, title: m[2]!, ...(m[3] ? { date: m[3] } : {}) })
+    if (m) { out.push({ id: m[1]!, title: m[2]!, ...(m[3] ? { date: m[3] } : {}) }); continue }
+    if (!line.trim().startsWith('|')) { cols = null; continue }
+    const cells = cellsOf(line)
+    if (cells.every(c => /^:?-+:?$/.test(c))) continue
+    const at = cells.findIndex(c => /^D-\d+$/.test(plain(c)))
+    if (at < 0) {
+      // A header row: where the id, date and decision columns are.
+      const find = (re: RegExp) => cells.findIndex(c => re.test(c))
+      const id = find(/^id$/i)
+      cols = id < 0 ? null : { id, date: find(/date/i), title: find(/decision|title|what/i) }
+      continue
+    }
+    const id = plain(cells[cols?.id ?? at] ?? '')
+    if (!/^D-\d+$/.test(id)) continue
+    const date = (cols && cols.date >= 0 ? cells[cols.date] : cells.find(c => /^\d{4}-\d{2}-\d{2}$/.test(c))) ?? ''
+    // Without a header, the decision is the longest of the other cells.
+    const title = plain(cols && cols.title >= 0 ? cells[cols.title] ?? ''
+      : cells.filter((c, i) => i !== at && c !== date).sort((a, b) => b.length - a.length)[0] ?? '')
+    if (title) out.push({ id, title, ...(/^\d{4}-\d{2}-\d{2}$/.test(date.trim()) ? { date: date.trim() } : {}) })
   }
   return out.slice(-limit).reverse()
 }
+
+// Where the Board looks for decisions, in order: kickoff's .ops memory, then docs/.
+export const DECISION_FILES = ['.ops/memory/DECISIONS.md', 'docs/DECISIONS.md'] as const
 
 // Run records summed per agent: runs, review verdicts, rework, time, rate limits.
 export function statsOf(runs: Record<string, unknown>[]): AgentRunStats[] {
@@ -339,7 +367,12 @@ async function loadBoard($: EngineInterface): Promise<void> {
   const raw = await $.fs.read(`${root}/.ops/log/activity.jsonl`).catch(() => '')
   // More lines than are shown: runs of hook lines fold into one.
   const last = raw.split(/\r?\n/).filter(l => l.trim()).slice(-300).join('\n')
-  const decisions = parseDecisions(await $.fs.read(`${root}/.ops/memory/DECISIONS.md`).catch(() => ''))
+  let decisions: DecisionNote[] = [], decisionsFrom: string | undefined
+  for (const f of DECISION_FILES) {
+    const src = await $.fs.read(`${root}/${f}`).catch(() => '')
+    decisions = parseDecisions(typeof src === 'string' ? src : '')
+    if (decisions.length > 0) { decisionsFrom = f; break }
+  }
   const runs: Record<string, unknown>[] = []
   for (const d of (await $.fs.list(`${root}/.ops/runs`).catch(() => [])).filter(x => x.kind === 'dir').slice(0, 200)) {
     for (const f of (await $.fs.list(`${root}/.ops/runs/${d.name}`).catch(() => [])).filter(x => x.kind === 'file' && x.name.endsWith('.json'))) {
@@ -348,9 +381,9 @@ async function loadBoard($: EngineInterface): Promise<void> {
     }
   }
   const now = await $.clock.now()
-  const snap: BoardSnapshot = { root, project: baseName(root), tickets, source, activity: parseActivity(last, 30), decisions, agentStats: statsOf(runs), runLogStats: runLogStats(raw, now), limitHits: limitsFromActivity(raw), readAt: now }
+  const snap: BoardSnapshot = { root, project: baseName(root), tickets, source, activity: parseActivity(last, 30), decisions, ...(decisionsFrom ? { decisionsFrom } : {}), agentStats: statsOf(runs), runLogStats: runLogStats(raw, now), limitHits: limitsFromActivity(raw), readAt: now }
   const was = await read($, board)
-  const key = (b: BoardSnapshot) => JSON.stringify([b.root, b.tickets, b.source ?? null, b.activity, b.decisions ?? [], b.agentStats ?? [], b.runLogStats ?? [], b.limitHits ?? []])
+  const key = (b: BoardSnapshot) => JSON.stringify([b.root, b.tickets, b.source ?? null, b.activity, b.decisions ?? [], b.decisionsFrom ?? '', b.agentStats ?? [], b.runLogStats ?? [], b.limitHits ?? []])
   const same = !!was && key(was) === key(snap)
   if (!same) await update($, board, () => snap)
 }
@@ -483,12 +516,12 @@ function logSvg(W: number, act: ActivityEvent[], theme: Theme, motion: Motion) {
 }
 
 const decisionsH = (n: number) => 24 + n * 22
-function decisionsSvg(W: number, list: DecisionNote[], theme: Theme, motion: Motion) {
+function decisionsSvg(W: number, list: DecisionNote[], from: string, theme: Theme, motion: Motion) {
   const rows = list.map((d, i) => {
     const y = 38 + i * 22
     return `${text(0, y, d.id, { size: 11, cls: 's', mono: true })}${text(48, y, d.title, { size: 12, max: W - 48 - (d.date ? 82 : 0) })}${d.date ? text(W, y, d.date, { size: 11, cls: 'm', anchor: 'end' }) : ''}`
   }).join('')
-  return wide(W, decisionsH(list.length), `${text(0, 14, 'Latest decisions', { size: 12, weight: 600 })}${text(W, 14, '.ops/memory/DECISIONS.md', { size: 11, cls: 'm', anchor: 'end' })}${rows}`, theme, motion)
+  return wide(W, decisionsH(list.length), `${text(0, 14, 'Latest decisions', { size: 12, weight: 600 })}${text(W, 14, from, { size: 11, cls: 'm', anchor: 'end' })}${rows}`, theme, motion)
 }
 
 const statLine = (s: AgentRunStats) => {
@@ -564,7 +597,7 @@ function boardBody(c: TabCtx, snap: BoardSnapshot, filter: BoardFilter, isDoneCo
   const done = snap.tickets.filter(t => t.status === 'done').length
   const sec = sectionsOf(filterTickets(snap.tickets, filter))
   const byId = new Map(snap.tickets.map(t => [t.id, t] as const))
-  const decisions = snap.decisions ?? [], stats = scoreRows(snap.agentStats ?? [], snap.runLogStats ?? [])
+  const decisions = snap.decisions ?? [], decisionsFile = snap.decisionsFrom ?? DECISION_FILES[0], stats = scoreRows(snap.agentStats ?? [], snap.runLogStats ?? [])
   const filters = (
     <Box key="filters" flexDirection="row" gap={1} flexWrap="wrap">
       {([['all', 'All'], ['mine', 'Mine'], ['agents', 'Agents'], ['blocked', `Blocked · ${blockedN}`]] as [BoardFilter, string][]).map(([id, name]) => (
@@ -592,7 +625,7 @@ function boardBody(c: TabCtx, snap: BoardSnapshot, filter: BoardFilter, isDoneCo
           <Svg source={sectionSvg(W, `Done · ${sec.done.length}`, sec.done, 'plain', byId, theme, motion)} alt={`Done: ${sec.done.map(t => t.id).join(', ')}`} height={sectionH(sec.done)} />
         )}
         {stats.length > 0 && <Svg key="stats" source={statsSvg(W, stats, theme, motion)} alt={stats.map(r => `${holderName(r.agent)}: ${r.lines.map(l => `${l.src} ${l.text}`).join(', ')}`).join('; ')} height={statsH(stats)} />}
-        {decisions.length > 0 && <Svg key="decisions" source={decisionsSvg(W, decisions, theme, motion)} alt={`Latest decisions: ${decisions.map(d => `${d.id} ${d.title}`).join('; ')}`} height={decisionsH(decisions.length)} />}
+        {decisions.length > 0 && <Svg key="decisions" source={decisionsSvg(W, decisions, decisionsFile, theme, motion)} alt={`Latest decisions: ${decisions.map(d => `${d.id} ${d.title}`).join('; ')}`} height={decisionsH(decisions.length)} />}
         <Svg source={logSvg(W, snap.activity, theme, motion)} alt="Activity log" height={24 + logRows(snap.activity) * 22} />
       </Box>
     )
@@ -632,7 +665,7 @@ function boardBody(c: TabCtx, snap: BoardSnapshot, filter: BoardFilter, isDoneCo
       )}
       {decisions.length > 0 && (
         <Box flexDirection="column" marginTop={1}>
-          <Text bold>Latest decisions</Text>
+          <Text><Text bold>Latest decisions</Text><Text dimColor>{`  ${decisionsFile}`}</Text></Text>
           {decisions.map(d => <Text key={`dc-${d.id}`}>{`${d.id}  ${clip(d.title, Math.max(16, c.cols - 22))}${d.date ? `  ${d.date}` : ''}`}</Text>)}
         </Box>
       )}

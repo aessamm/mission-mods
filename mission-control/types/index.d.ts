@@ -121,6 +121,7 @@ export type BoardSnapshot = {
   source?: BoardSource       // absent: .ops (a snapshot from before 0.10)
   activity: ActivityEvent[]  // newest first, at most 30
   decisions?: DecisionNote[] // newest first, at most 3
+  decisionsFrom?: string     // the file they came from, relative to root: .ops/memory/DECISIONS.md or docs/DECISIONS.md
   agentStats?: AgentRunStats[]
   runLogStats?: RunLogStats[] // run-log runs of the last 7 days, per implementer
   limitHits?: { tool: DelegationTool; at: number }[] // run-log rate-limit hits, for the Start button
