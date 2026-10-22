@@ -123,6 +123,7 @@ export type BoardSnapshot = {
   decisions?: DecisionNote[] // newest first, at most 3
   agentStats?: AgentRunStats[]
   runLogStats?: RunLogStats[] // run-log runs of the last 7 days, per implementer
+  limitHits?: { tool: DelegationTool; at: number }[] // run-log rate-limit hits, for the Start button
   readAt: number
 }
 

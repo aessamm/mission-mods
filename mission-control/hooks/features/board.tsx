@@ -11,8 +11,9 @@ import { mcDirsOf, resolveIn, samePath } from '../kit/paths'
 import { emptyState } from '../kit/ui'
 import { activeTab, badgesFrom, clip, tabBar } from '../kit/chrome'
 import { barText, box, hline, iconInk, progress, svg, text, textWidth, wide } from '../kit/draw'
-import { startBrief } from '../kit/brief'
+import { implementerOf, startBrief } from '../kit/brief'
 import { runLogStats } from '../kit/runstats'
+import { limitedAt, limitNote, limitsFromActivity } from '../kit/limits'
 import { DEFAULT_PANEL, DEFAULT_SETTINGS, makeCtx, settingsOf } from '../kit/state'
 import type { PaneInput } from '../kit/state'
 import type { TabCtx } from '../kit/state'
@@ -347,9 +348,9 @@ async function loadBoard($: EngineInterface): Promise<void> {
     }
   }
   const now = await $.clock.now()
-  const snap: BoardSnapshot = { root, project: baseName(root), tickets, source, activity: parseActivity(last, 30), decisions, agentStats: statsOf(runs), runLogStats: runLogStats(raw, now), readAt: now }
+  const snap: BoardSnapshot = { root, project: baseName(root), tickets, source, activity: parseActivity(last, 30), decisions, agentStats: statsOf(runs), runLogStats: runLogStats(raw, now), limitHits: limitsFromActivity(raw), readAt: now }
   const was = await read($, board)
-  const key = (b: BoardSnapshot) => JSON.stringify([b.root, b.tickets, b.source ?? null, b.activity, b.decisions ?? [], b.agentStats ?? [], b.runLogStats ?? []])
+  const key = (b: BoardSnapshot) => JSON.stringify([b.root, b.tickets, b.source ?? null, b.activity, b.decisions ?? [], b.agentStats ?? [], b.runLogStats ?? [], b.limitHits ?? []])
   const same = !!was && key(was) === key(snap)
   if (!same) await update($, board, () => snap)
 }
@@ -378,6 +379,8 @@ export function registerBoard(on: On): void {
       choose: id => void update($, panel, q => ({ ...q, boardPick: q.boardPick === id ? undefined : id })),
       start: t => void $.prompt.fill({ text: startBrief(t, s.routing), mode: 'replace' }),
       open: url => void $.prompt.fill({ text: url, mode: 'replace' }),
+      // Start's implementer hit a rate limit in the last hour: say so beside the button.
+      limit: snap ? limitNote(implementerOf(s.routing).agent, limitedAt(snap.limitHits ?? [], c.at), c.at) : '',
     }
     return (
       <Box flexDirection="column" gap={1}>
@@ -529,7 +532,7 @@ function statsSvg(W: number, rows: ScoreRow[], theme: Theme, motion: Motion) {
 
 // The Start / Open actions on a ticket that is not done: a row of small id buttons under each
 // section picks one, and the picked ticket gets its actions beneath. Both surfaces draw it.
-export type TicketActs = { pick: string | undefined; choose: (id: string) => void; start: (t: Ticket) => void; open: (url: string) => void }
+export type TicketActs = { pick: string | undefined; choose: (id: string) => void; start: (t: Ticket) => void; open: (url: string) => void; limit: string }
 function ticketPicker(c: TabCtx, name: string, list: Ticket[], acts: TicketActs) {
   const { Box, Text, Button } = c.ui
   const Link = 'Link' in c.ui ? c.ui.Link : undefined
@@ -548,6 +551,7 @@ function ticketPicker(c: TabCtx, name: string, list: Ticket[], acts: TicketActs)
           {picked.url && (Link ? <Link key={`open-${picked.id}`} href={picked.url} label="Open" /> : <Button key={`open-${picked.id}`} label="Open" onPress={() => acts.open(picked.url!)} />)}
         </Box>
       )}
+      {picked && acts.limit ? <Text key={`limit-${picked.id}`} color="warning" wrap="wrap">{`⚠ ${acts.limit}`}</Text> : null}
     </Box>
   )
 }

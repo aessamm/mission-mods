@@ -3,7 +3,7 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { BoardSnapshot, Delegation, TicketStatus } from '../types'
 import { applyResult, cardMoveFor, fromRun, fromRunLog, movePrompt, parseRelay, parseShortstat, progressOf, promptFor, sameRun, syncPrompt, taskOf, ticketOf } from '../hooks/features/delegations'
 import { mcDirsOf } from '../hooks/kit/paths'
-import { alternativeTo, isLimitedResult, limitedAt, limitFromLogLine, limitNote, limitsFromDelegations } from '../hooks/kit/limits'
+import { alternativeTo, isLimitedResult, limitedAt, limitFromLogLine, limitNote, limitsFromActivity, limitsFromDelegations } from '../hooks/kit/limits'
 
 
 const PANE = {
@@ -166,6 +166,17 @@ test('who is rate limited comes from run-log lines and results, inside the windo
   expect(isLimitedResult({ status: 'failed', stderrTail: ['HTTP 429 Too Many Requests'] })).toBe(true)
   expect(isLimitedResult({ rateLimited: true })).toBe(true)
   expect(isLimitedResult({ status: 'completed', finalMessage: 'Done' })).toBe(false)
+  // A run that finished fine is not limited, even when its final message talks about rate limits.
+  expect(isLimitedResult({ status: 'completed', exitCode: 0, finalMessage: 'Added a rate limit warning and a 429 test' })).toBe(false)
+  expect(isLimitedResult({ status: 'failed', exitCode: 1, finalMessage: 'usage limit reached, try again at 9' })).toBe(true)
+  const log = [
+    '{"ts":"2026-10-22T05:00:00Z","actor":"codex","event":"run.failed","source":"run-log","detail":{"agent":"codex","reason":"429 Too Many Requests"}}',
+    '{"ts":"2026-10-22T05:10:00Z","actor":"claude","event":"session.started","source":"hook"}',
+    'not json',
+    '{"ts":"2026-10-22T05:20:00Z","actor":"agy","event":"run.completed","source":"run-log","detail":{"agent":"agy","rateLimited":true}}',
+  ].join('\n')
+  expect(limitsFromActivity(log).map(h => h.tool)).toEqual(['codex', 'agy'])
+  expect(limitsFromActivity('{"event":"x"}')).toEqual([])
   expect(applyResult({ status: 'failed', error: 'rate limit exceeded' }, 5)).toMatchObject({ status: 'failed', rateLimited: true })
   expect(limitsFromDelegations([{ ...base, rateLimited: true, endedAt: 9 }, base])).toEqual([{ tool: 'agy', at: 9 }])
 

@@ -30,12 +30,28 @@ export function limitFromLogLine(raw: unknown): LimitHit | null {
   return hit && tool && Number.isFinite(at) ? { tool, at } : null
 }
 
-// A relay's result.json that says it was rate limited, flagged or in its words.
+// A relay's result.json that says it was rate limited: flagged, or a failed run whose error,
+// stderr or final message reads like one. A run that finished fine is never limited, however
+// its final message talks (an agent working on rate limits says the words too).
 export function isLimitedResult(raw: unknown): boolean {
   if (!isObj(raw)) return false
   if (raw.rateLimited === true) return true
+  const st = str(raw.status), exit = typeof raw.exitCode === 'number' ? raw.exitCode : undefined
+  const failed = (st !== '' && st !== 'completed') || (exit !== undefined && exit !== 0)
+  if (!failed) return false
   const tail = Array.isArray(raw.stderrTail) ? raw.stderrTail.filter(x => typeof x === 'string').join(' ') : str(raw.stderrTail)
-  return RATE_LIMIT.test(`${str(raw.status)} ${str(raw.error)} ${tail} ${str(raw.finalMessage)}`)
+  return RATE_LIMIT.test(`${st} ${str(raw.error)} ${tail} ${str(raw.finalMessage)}`)
+}
+
+// The rate-limit hits in an activity log's last lines (run-log lines only).
+export function limitsFromActivity(src: string, lastLines = 400): LimitHit[] {
+  const hits: LimitHit[] = []
+  if (!src.includes('"run-log"')) return hits
+  for (const line of src.split(/\r?\n/).slice(-lastLines)) {
+    if (!line.includes('"run-log"')) continue
+    try { const h = limitFromLogLine(JSON.parse(line)); if (h) hits.push(h) } catch { /* a bad line */ }
+  }
+  return hits
 }
 
 // Runs this session tracked whose result said so.

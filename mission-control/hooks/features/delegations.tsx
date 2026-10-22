@@ -13,7 +13,7 @@ import { fmtSpan, fmtTime } from '../kit/role'
 import { expandHome, homeOf, isWindowsHome, mcDirsOf, tmpOf } from '../kit/paths'
 import type { HomeEnv } from '../kit/paths'
 import { DEFAULT_PANEL, DEFAULT_SETTINGS, localDay, makeCtx, settingsOf } from '../kit/state'
-import { isLimitedResult, limitedAt, limitFromLogLine, limitNote, limitsFromDelegations, toolOf } from '../kit/limits'
+import { isLimitedResult, limitedAt, limitNote, limitsFromActivity, limitsFromDelegations, toolOf } from '../kit/limits'
 import type { LimitHit } from '../kit/limits'
 import type { PaneInput } from '../kit/state'
 import type { TabCtx } from '../kit/state'
@@ -356,12 +356,7 @@ async function warnIfLimited($: EngineInterface, d: Delegation): Promise<void> {
     const hits: LimitHit[] = limitsFromDelegations(Object.values(await read($, delegations)).filter(x => x.id !== d.id))
     const repo = await $.session.repo().catch(() => null)
     const src = repo ? await $.fs.read(joinPath(repo.root, '.ops/log/activity.jsonl')).catch(() => '') : ''
-    if (typeof src === 'string' && src.includes('"run-log"')) {
-      for (const line of src.split(/\r?\n/).slice(-400)) {
-        if (!line.includes('"run-log"')) continue
-        try { const h = limitFromLogLine(JSON.parse(line)); if (h) hits.push(h) } catch { /* a bad line */ }
-      }
-    }
+    if (typeof src === 'string') hits.push(...limitsFromActivity(src))
     const note = limitNote(d.tool, limitedAt(hits, d.startedAt), d.startedAt)
     if (!note) return
     await patch($, d.id, { limitNote: note })
