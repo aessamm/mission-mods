@@ -109,6 +109,9 @@ export type DecisionNote = { id: string; title: string; date?: string }
 export type AgentRunStats = { agent: string; runs: number; approved: number; rejected: number; reworks: number; avgSec?: number; rateLimited: number }
 // Mission Control's run-log runs of one implementer over the last 7 days.
 export type RunLogStats = { agent: string; runs: number; ok: number; failed: number; reworks: number; avgSec?: number; rateLimited: number }
+// Mission Control's run-log runs for one issue (#28) or .ops ticket, all time: how many, how
+// long in total, and how many per implementer.
+export type IssueTime = { runs: number; sec: number; by: Record<string, number> }
 // A line of .ops/log/activity.jsonl. `detail` is the line's own words (a string detail, or a
 // summary of an object one). Claude Code hook lines (session.started / session.ended /
 // subagent.stopped) that come one after another are folded into one event with `hooks` counts.
@@ -126,6 +129,7 @@ export type BoardSnapshot = {
   decisionsFrom?: string     // the file they came from, relative to root: .ops/memory/DECISIONS.md or docs/DECISIONS.md
   agentStats?: AgentRunStats[]
   runLogStats?: RunLogStats[] // run-log runs of the last 7 days, per implementer
+  issueTime?: Record<string, IssueTime> // run-log runs per ticket id ("#28", "M0-007")
   limitHits?: { tool: DelegationTool; at: number }[] // run-log rate-limit hits, for the Start button
   readAt: number
 }

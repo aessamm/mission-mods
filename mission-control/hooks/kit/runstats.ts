@@ -1,7 +1,7 @@
 // Pure helpers for the Board's scorecard: Mission Control's run-log lines in
 // .ops/log/activity.jsonl (`source: "run-log"`, run.completed / run.failed) summed per
 // implementer over the last days. No `$` here, so tests exercise them directly.
-import type { RunLogStats } from '../../types'
+import type { IssueTime, RunLogStats } from '../../types'
 
 const DAY_MS = 86_400_000
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -46,4 +46,36 @@ export function runLogStats(src: string, now: number, days = 7): RunLogStats[] {
   }
   return [...by.values()].sort((a, b) => b.runs - a.runs || a.agent.localeCompare(b.agent))
     .map(({ secs, ...s }) => ({ ...s, ...(secs.length ? { avgSec: secs.reduce((n, x) => n + x, 0) / secs.length } : {}) }))
+}
+
+// Finished run-log runs per ticket, all time: keyed "#28" for a GitHub issue, else the line's
+// .ops ticket id ("M0-007"). Lines that name neither are skipped.
+export function issueTime(src: string): Record<string, IssueTime> {
+  const out: Record<string, IssueTime> = {}
+  for (const line of src.split(/\r?\n/)) {
+    if (!line.includes('"run-log"')) continue
+    let o: unknown
+    try { o = JSON.parse(line) } catch { continue }
+    if (!isObj(o) || o.source !== 'run-log' || (o.event !== 'run.completed' && o.event !== 'run.failed')) continue
+    const n = typeof o.issue === 'number' ? o.issue : Number(str(o.issue).replace(/^#/, ''))
+    const id = Number.isInteger(n) && n > 0 ? `#${n}` : str(o.ticket).trim()
+    if (!id) continue
+    const d = isObj(o.detail) ? o.detail : {}
+    const t = out[id] ?? (out[id] = { runs: 0, sec: 0, by: {} })
+    t.runs++
+    const sec = num(d.durationSec)
+    if (sec && sec > 0) t.sec += sec
+    const agent = implementerOfLine(str(d.agent), str(o.actor))
+    if (agent) t.by[agent] = (t.by[agent] ?? 0) + 1
+  }
+  return out
+}
+
+const NAMES: Record<string, string> = { codex: 'Codex', agy: 'agy', opencode: 'OpenCode', claude: 'Claude' }
+
+// "3 runs · 1h 20m · Codex 2, agy 1"; empty without runs.
+export function issueTimeLine(t: IssueTime | undefined, fmt: (ms: number) => string): string {
+  if (!t || t.runs === 0) return ''
+  const who = Object.entries(t.by).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([a, n]) => `${NAMES[a] ?? a} ${n}`).join(', ')
+  return [`${t.runs} run${t.runs === 1 ? '' : 's'}`, t.sec > 0 ? fmt(t.sec * 1000) : '', who].filter(Boolean).join(' · ')
 }

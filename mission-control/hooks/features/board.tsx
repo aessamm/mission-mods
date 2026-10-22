@@ -12,7 +12,7 @@ import { emptyState } from '../kit/ui'
 import { activeTab, badgesFrom, clip, tabBar } from '../kit/chrome'
 import { barText, box, hline, iconInk, progress, svg, text, textWidth, wide } from '../kit/draw'
 import { implementerOf, startBrief } from '../kit/brief'
-import { runLogStats } from '../kit/runstats'
+import { issueTime, issueTimeLine, runLogStats } from '../kit/runstats'
 import { limitedAt, limitNote, limitsFromActivity } from '../kit/limits'
 import { DEFAULT_PANEL, DEFAULT_SETTINGS, makeCtx, settingsOf } from '../kit/state'
 import type { PaneInput } from '../kit/state'
@@ -394,9 +394,9 @@ async function loadBoard($: EngineInterface): Promise<void> {
     }
   }
   const now = await $.clock.now()
-  const snap: BoardSnapshot = { root, project: baseName(root), tickets, source, activity: parseActivity(last, 30), decisions, ...(decisionsFrom ? { decisionsFrom } : {}), agentStats: statsOf(runs), runLogStats: runLogStats(raw, now), limitHits: limitsFromActivity(raw), readAt: now }
+  const snap: BoardSnapshot = { root, project: baseName(root), tickets, source, activity: parseActivity(last, 30), decisions, ...(decisionsFrom ? { decisionsFrom } : {}), agentStats: statsOf(runs), runLogStats: runLogStats(raw, now), issueTime: issueTime(raw), limitHits: limitsFromActivity(raw), readAt: now }
   const was = await read($, board)
-  const key = (b: BoardSnapshot) => JSON.stringify([b.root, b.tickets, b.source ?? null, b.activity, b.decisions ?? [], b.decisionsFrom ?? '', b.agentStats ?? [], b.runLogStats ?? [], b.limitHits ?? []])
+  const key = (b: BoardSnapshot) => JSON.stringify([b.root, b.tickets, b.source ?? null, b.activity, b.decisions ?? [], b.decisionsFrom ?? '', b.agentStats ?? [], b.runLogStats ?? [], b.issueTime ?? {}, b.limitHits ?? []])
   const same = !!was && key(was) === key(snap)
   if (!same) await update($, board, () => snap)
 }
@@ -427,6 +427,8 @@ export function registerBoard(on: On): void {
       open: url => void $.prompt.fill({ text: url, mode: 'replace' }),
       // Start's implementer hit a rate limit in the last hour: say so beside the button.
       limit: snap ? limitNote(implementerOf(s.routing).agent, limitedAt(snap.limitHits ?? [], c.at), c.at) : '',
+      // The run-log runs spent on the picked ticket so far.
+      time: id => issueTimeLine(snap?.issueTime?.[id], fmtSpan),
     }
     return (
       <Box flexDirection="column" gap={1}>
@@ -578,11 +580,12 @@ function statsSvg(W: number, rows: ScoreRow[], theme: Theme, motion: Motion) {
 
 // The Start / Open actions on a ticket that is not done: a row of small id buttons under each
 // section picks one, and the picked ticket gets its actions beneath. Both surfaces draw it.
-export type TicketActs = { pick: string | undefined; choose: (id: string) => void; start: (t: Ticket) => void; open: (url: string) => void; limit: string }
+export type TicketActs = { pick: string | undefined; choose: (id: string) => void; start: (t: Ticket) => void; open: (url: string) => void; limit: string; time: (id: string) => string }
 function ticketPicker(c: TabCtx, name: string, list: Ticket[], acts: TicketActs) {
   const { Box, Text, Button } = c.ui
   const Link = 'Link' in c.ui ? c.ui.Link : undefined
   const picked = list.find(t => t.id === acts.pick)
+  const spent = picked ? acts.time(picked.id) : ''
   return (
     <Box key={`pick-${name}`} flexDirection="column">
       <Box flexDirection="row" gap={1} flexWrap="wrap">
@@ -597,6 +600,7 @@ function ticketPicker(c: TabCtx, name: string, list: Ticket[], acts: TicketActs)
           {picked.url && (Link ? <Link key={`open-${picked.id}`} href={picked.url} label="Open" /> : <Button key={`open-${picked.id}`} label="Open" onPress={() => acts.open(picked.url!)} />)}
         </Box>
       )}
+      {picked && spent ? <Text key={`time-${picked.id}`} dimColor wrap="truncate-end">{spent}</Text> : null}
       {picked && acts.limit ? <Text key={`limit-${picked.id}`} color="warning" wrap="wrap">{`⚠ ${acts.limit}`}</Text> : null}
     </Box>
   )

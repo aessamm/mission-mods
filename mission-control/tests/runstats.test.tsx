@@ -1,12 +1,35 @@
 import { expect, test } from 'claude-code/testing'
 
 import { LOG_SRC, OPS_SRC, logStatLine, scoreRows } from '../hooks/features/board'
-import { implementerOfLine, runLogStats } from '../hooks/kit/runstats'
+import { implementerOfLine, issueTime, issueTimeLine, runLogStats } from '../hooks/kit/runstats'
+import { fmtSpan } from '../hooks/kit/role'
 
 const NOW = Date.parse('2026-10-22T12:00:00Z')
 const DAY = 86_400_000
 const line = (daysAgo: number, o: Record<string, unknown>) =>
   JSON.stringify({ ts: new Date(NOW - daysAgo * DAY).toISOString(), source: 'run-log', event: 'run.completed', ...o })
+
+test('run-log runs sum per issue or .ops ticket, all time, with their implementers', () => {
+  const src = [
+    line(1, { actor: 'codex', issue: 28, detail: { agent: 'codex', durationSec: 1800 } }),
+    line(40, { actor: 'codex', issue: 28, event: 'run.failed', detail: { agent: 'codex', durationSec: 1200 } }), // old runs count too
+    line(2, { actor: 'x', issue: '#28', detail: { agent: 'antigravity', durationSec: 1800 } }),
+    line(1, { actor: 'claude', issue: null, ticket: 'M0-007', detail: { agent: 'claude' } }),
+    line(1, { actor: 'codex', issue: 28, event: 'run.started', detail: { agent: 'codex' } }),
+    line(1, { actor: 'codex', issue: 28, source: 'hook', detail: { agent: 'codex' } }),
+    line(1, { actor: 'codex', detail: { agent: 'codex', durationSec: 60 } }),                // names no ticket
+    'not json',
+  ].join('\r\n')
+  const t = issueTime(src)
+  expect(t).toEqual({
+    '#28': { runs: 3, sec: 4800, by: { codex: 2, agy: 1 } },
+    'M0-007': { runs: 1, sec: 0, by: { claude: 1 } },
+  })
+  expect(issueTimeLine(t['#28'], fmtSpan)).toBe('3 runs · 1h 20m · Codex 2, agy 1')
+  expect(issueTimeLine(t['M0-007'], fmtSpan)).toBe('1 run · Claude 1')
+  expect(issueTimeLine(undefined, fmtSpan)).toBe('')
+  expect(issueTime('')).toEqual({})
+})
 
 test('run-log lines of the last 7 days sum per implementer; other lines are skipped', () => {
   const src = [

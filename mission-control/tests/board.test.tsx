@@ -299,6 +299,27 @@ test('picking a GitHub issue shows Start and Open on both surfaces; Start fills 
   }
 })
 
+test('the picked issue shows the time its runs took, and nothing without runs', UI, async ($, on) => {
+  const run = (o: Record<string, unknown>) => JSON.stringify({ ts: '2026-10-20T04:00:00Z', source: 'run-log', event: 'run.completed', ...o })
+  const activity = [
+    run({ actor: 'codex', issue: 35, detail: { agent: 'codex', durationSec: 1800 } }),
+    run({ actor: 'codex', issue: 35, detail: { agent: 'codex', durationSec: 1200 } }),
+    run({ actor: 'agy', issue: 35, detail: { agent: 'agy', durationSec: 1800 } }),
+  ].join('\n')
+  const mount = await startBoard($, on, 'https://github.com/aessamm/mos.git', { '/w/app/.ops/log/activity.jsonl': activity })
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await mount(surface)
+    await ui.press({ key: 'pick-#35' })
+    expect(JSON.stringify(await ui.drawn())).toContain('3 runs · 1h 20m · Codex 2, agy 1')
+    await ui.press({ key: 'pick-#44' })
+    const drawn = JSON.stringify(await ui.drawn())
+    expect(drawn.includes('"start-#44"')).toBe(true)
+    expect(drawn.includes('runs ·')).toBe(false)
+    await ui.press({ key: 'pick-#44' })
+    await ui.unmount()
+  }
+})
+
 test('an .ops ticket gets Start but no Open', UI, async ($, on) => {
   const filled: string[] = []
   on('prompt.fill', (_$, e) => { filled.push(e.text); return { isFilled: true } })
