@@ -100,7 +100,9 @@ export type Ticket = {
 }
 // Where the board's tickets came from: Mission Control's cache of a GitHub repo's issues
 // and its project board, or the repo's .ops/tickets.
-export type BoardSource = { kind: 'github'; repo: string; board?: string; url?: string; fetchedAt: number } | { kind: 'ops' }
+// `file` names the repo's own copy (.claude/board-cache.json, written by scripts/board-cache.mjs)
+// when the issues came from it rather than from Mission Control's cache.
+export type BoardSource = { kind: 'github'; repo: string; board?: string; url?: string; fetchedAt: number; file?: string } | { kind: 'ops' }
 // A line of .ops/memory/DECISIONS.md: "## D-014 — title (2026-09-21)".
 export type DecisionNote = { id: string; title: string; date?: string }
 // What .ops/runs/<ticket>/*.json says about one agent.

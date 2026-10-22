@@ -25,6 +25,8 @@ const panel = atom({ plugin: 'mission-control', key: 'panel' } as const, DEFAULT
 const settings = atom({ plugin: 'mission-control', key: 'settings' } as const, DEFAULT_SETTINGS)
 
 const REFRESH_MS = 30_000
+// The repo's own copy of its issues and board, written by scripts/board-cache.mjs.
+export const REPO_CACHE = '.claude/board-cache.json'
 const MAX_TICKETS = 400
 type Theme = 'follow' | 'light' | 'dark'
 type Motion = 'full' | 'calm' | 'off'
@@ -82,7 +84,7 @@ export function parseTicket(src: string, path: string): Ticket | null {
 // Mission Control, the project tool this mod is named after, keeps a repo's GitHub issues and
 // their project-board Status in <mission-control>/.cache/github-tasks.json. A closed
 // issue is done; an open one labelled "blocked" is blocked; else its board column decides.
-export type GithubCache = { repo: string; fetchedAt: number; board?: string; url?: string; tickets: Ticket[] }
+export type GithubCache = { repo: string; fetchedAt: number; board?: string; url?: string; file?: string; tickets: Ticket[] }
 const labelName = (l: unknown): string => (typeof l === 'string' ? l : isObj(l) && typeof l.name === 'string' ? l.name : '')
 const loginOf = (a: unknown): string => (typeof a === 'string' ? a : isObj(a) && typeof a.login === 'string' ? a.login : '')
 export function githubCacheOf(raw: unknown): GithubCache | null {
@@ -276,12 +278,14 @@ export function sectionsOf(list: Ticket[]): Sections {
 // Where the header says the tickets came from.
 export const sourceTag = (snap: BoardSnapshot): string =>
   snap.source?.kind === 'github' ? `${snap.source.repo}${snap.source.board ? ` · ${snap.source.board}` : ''}` : '.ops/tickets'
-// "cached 2h ago" when Mission Control's copy of GitHub is older than 15 minutes.
+// "cached 2h ago" when the copy of GitHub is older than 15 minutes, led by the file's name when
+// the issues came from the repo's own cache: "from .claude/board-cache.json · cached 2h ago".
 export function staleNote(snap: BoardSnapshot, now: number): string {
-  if (snap.source?.kind !== 'github' || !snap.source.fetchedAt) return ''
-  const m = Math.round((now - snap.source.fetchedAt) / 60000)
-  if (m < 15) return ''
-  return `cached ${m >= 1440 ? `${Math.floor(m / 1440)}d` : m >= 60 ? `${Math.floor(m / 60)}h` : `${m}m`} ago`
+  if (snap.source?.kind !== 'github') return ''
+  const from = snap.source.file ? `from ${snap.source.file}` : ''
+  const m = snap.source.fetchedAt ? Math.round((now - snap.source.fetchedAt) / 60000) : 0
+  const age = m < 15 ? '' : `cached ${m >= 1440 ? `${Math.floor(m / 1440)}d` : m >= 60 ? `${Math.floor(m / 60)}h` : `${m}m`} ago`
+  return [from, age].filter(Boolean).join(' · ')
 }
 
 const hhmm = (ts: string): string => {
@@ -318,7 +322,10 @@ async function walk($: EngineInterface, dir: string, out: string[], depth: numbe
 // Mission Control's GitHub cache for this repo, if one is around: the folder named by MC_DIR,
 // the one holding MC_RUN_LOG's script, or a "mission-control" folder beside the repo. The
 // cache counts only when it is this repo's: its GitHub repo is the origin remote, or, with
-// no remote, Mission Control's mc.config.json points its appDir here.
+// no remote, Mission Control's mc.config.json points its appDir here. With no Mission Control
+// cache for this repo, the repo's own .claude/board-cache.json (scripts/board-cache.mjs) is
+// read the same way; it counts when its repo is the origin remote, or when there is no remote
+// (it sits in this repo's own folder).
 async function githubFor($: EngineInterface, root: string, remote: string | null): Promise<GithubCache | null> {
   const dirs = mcDirsOf(await $.env.get('MC_DIR').catch(() => undefined), await $.env.get('MC_RUN_LOG').catch(() => undefined), root)
   for (const dir of dirs) {
@@ -336,7 +343,13 @@ async function githubFor($: EngineInterface, root: string, remote: string | null
       if (typeof cfg.appDir === 'string' && samePath(resolveIn(dir, cfg.appDir), root)) return cache
     } catch { /* no config: not provably this repo */ }
   }
-  return null
+  const file = REPO_CACHE
+  const src = await $.fs.read(`${root}/${file}`).catch(() => '')
+  if (typeof src !== 'string' || !src) return null
+  let cache: GithubCache | null = null
+  try { cache = githubCacheOf(JSON.parse(src)) } catch { /* a half-written cache */ }
+  if (!cache || (remote && !remoteIs(remote, cache.repo))) return null
+  return { ...cache, file }
 }
 
 async function opsTickets($: EngineInterface, root: string): Promise<Ticket[] | null> {
@@ -363,7 +376,7 @@ async function loadBoard($: EngineInterface): Promise<void> {
     if ((await read($, board)) !== null) await update($, board, () => null)
     return
   }
-  const source: BoardSource = gh ? { kind: 'github', repo: gh.repo, fetchedAt: gh.fetchedAt, ...(gh.board ? { board: gh.board } : {}), ...(gh.url ? { url: gh.url } : {}) } : { kind: 'ops' }
+  const source: BoardSource = gh ? { kind: 'github', repo: gh.repo, fetchedAt: gh.fetchedAt, ...(gh.board ? { board: gh.board } : {}), ...(gh.url ? { url: gh.url } : {}), ...(gh.file ? { file: gh.file } : {}) } : { kind: 'ops' }
   const raw = await $.fs.read(`${root}/.ops/log/activity.jsonl`).catch(() => '')
   // More lines than are shown: runs of hook lines fold into one.
   const last = raw.split(/\r?\n/).filter(l => l.trim()).slice(-300).join('\n')

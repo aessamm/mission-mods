@@ -196,6 +196,50 @@ test('another repo’s cache is ignored and the board falls back to .ops/tickets
   expect(drawn.includes('.ops/tickets')).toBe(true)
 })
 
+// What scripts/board-cache.mjs wrote for this repo (four of its issues), kept in the repo itself.
+const REPO_CACHE = JSON.stringify({
+  schema: 'mc.github-tasks.v1', fetchedAt: '2026-10-22T05:41:35.834Z', repo: 'aessamm/mission-mods',
+  project: { owner: 'aessamm', number: 5, title: 'Mission Mods', url: 'https://github.com/users/aessamm/projects/5' },
+  statuses: ['Backlog', 'Todo', 'In progress', 'Review', 'Waiting on owner', 'Done', 'No status'],
+  issues: [
+    { number: 13, title: 'Owner: ship a generic board-supervisor skill in the mod?', state: 'open', url: 'https://github.com/aessamm/mission-mods/issues/13', labels: [{ name: 'type:feature' }, { name: 'priority:p2' }, { name: 'owner-action' }, { name: 'area:skills' }], assignees: [], status: 'Waiting on owner' },
+    { number: 12, title: 'Skill script: board-cache.mjs writes the repo’s issues and board Status', state: 'open', url: 'https://github.com/aessamm/mission-mods/issues/12', labels: [{ name: 'type:feature' }, { name: 'priority:p2' }, { name: 'area:skills' }], assignees: [], status: 'In progress' },
+    { number: 4, title: 'Owner: turn on the Mission Mods board workflows', state: 'open', url: 'https://github.com/aessamm/mission-mods/issues/4', labels: [{ name: 'type:ops' }, { name: 'priority:p2' }, { name: 'owner-action' }, { name: 'area:meta' }], assignees: [], status: 'Waiting on owner' },
+    { number: 9, title: 'Repo: commit-msg rule and CLAUDE.md for the board workflow', state: 'closed', url: 'https://github.com/aessamm/mission-mods/issues/9', labels: [{ name: 'type:chore' }, { name: 'priority:p1' }, { name: 'area:meta' }], assignees: [], status: 'Done' },
+  ],
+})
+// No Mission Control beside the repo: an empty read counts as no cache.
+const NO_MC = { '/w/mission-control/.cache/github-tasks.json': '' }
+
+test('with no Mission Control, the repo’s own .claude/board-cache.json fills the board', async ($, on) => {
+  const drawn = await boardWith($, on, 'git@github.com:aessamm/mission-mods.git', { ...NO_MC, '/w/app/.claude/board-cache.json': REPO_CACHE })
+  expect(drawn.includes('Owner: turn on the Mission Mods board workflows')).toBe(true)
+  expect(drawn.includes('Waiting on owner · 2')).toBe(true)
+  expect(drawn.includes('aessamm/mission-mods · Mission Mods #5')).toBe(true)
+  expect(drawn.includes('from .claude/board-cache.json')).toBe(true)
+  expect(drawn.includes('Old ops ticket')).toBe(false)
+})
+
+test('Mission Control’s cache for this repo comes before the repo’s own', async ($, on) => {
+  const both = await boardWith($, on, 'https://github.com/aessamm/mos.git', { '/w/app/.claude/board-cache.json': REPO_CACHE })
+  expect(both.includes('aessamm/mos · Agenca #3')).toBe(true)
+  expect(both.includes('from .claude/board-cache.json')).toBe(false)
+})
+
+test('a repo cache whose repo is not the origin falls back to .ops/tickets', async ($, on) => {
+  const drawn = await boardWith($, on, 'https://github.com/someone/else.git', { ...NO_MC, '/w/app/.claude/board-cache.json': REPO_CACHE })
+  expect(drawn.includes('Owner: turn on the Mission Mods board workflows')).toBe(false)
+  expect(drawn.includes('.ops/tickets')).toBe(true)
+})
+
+test('the header note names the repo’s own cache, then how old it is', () => {
+  const at = Date.parse('2026-10-22T05:41:35Z')
+  const snap = { root: '/w/app', project: 'app', tickets: [], activity: [], readAt: 0, source: { kind: 'github' as const, repo: 'aessamm/mission-mods', board: 'Mission Mods #5', fetchedAt: at, file: '.claude/board-cache.json' } }
+  expect(sourceTag(snap)).toBe('aessamm/mission-mods · Mission Mods #5')
+  expect(staleNote(snap, at + 60_000)).toBe('from .claude/board-cache.json')
+  expect(staleNote(snap, at + 3 * 3_600_000)).toBe('from .claude/board-cache.json · cached 3h ago')
+})
+
 test('with no remote, the cache counts when mc.config.json points its appDir at the repo', async ($, on) => {
   const drawn = await boardWith($, on, null, { '/w/mission-control/mc.config.json': '{"appDir":"../app"}' })
   expect(drawn.includes('Daily production database backup')).toBe(true)
