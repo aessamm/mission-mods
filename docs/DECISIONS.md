@@ -24,3 +24,6 @@ each one is in the next wake-up report.
 | D-017 | 2026-10-22 | Worktrees is its own tab between Board and Log (the Log hotkey moves from 4 to 5), not a Board section: branches on disk are neither issues nor runs. | Sup, owner asleep |
 | D-018 | 2026-10-22 | The 0.12.0 release waits for proof the suite is green: each test file run alone in sequence (or the full suite once #16 gives session and pane tests a 30 s timeout). | Sup, owner asleep |
 | D-019 | 2026-10-22 | `mission-control/CHANGELOG.md` is the changelog (it ships with the mod for What's new); the root `CHANGELOG.md` only points to it. | Sup, owner asleep |
+| D-020 | 2026-10-22 | At most two sessions work at once while the machine runs at 100% CPU; the others wait idle until the release. | Sup, owner asleep |
+| D-021 | 2026-10-22 | D-007 is narrowed: a timeout is called load only after the file passes alone with a 60 s timeout. A timeout had hidden a real Info tab crash (#14, fixed in 907b7d8). | Sup, owner asleep |
+| D-022 | 2026-10-22 | Next feature: /weekly, a client update for the week in Arabic and English (#17), from the owner-approved idea list. | Sup, owner asleep |
