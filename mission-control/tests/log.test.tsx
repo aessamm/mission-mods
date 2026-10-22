@@ -1,6 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 
 import { addEntry, byProject, emptyDay, firstLine, parseSections, plainSections } from '../hooks/features/log'
+import { UI } from './helpers'
 
 const PANE = {
   component: 'Pane' as const,
@@ -37,7 +38,7 @@ test('standup text parses into sections and falls back to a plain list', () => {
   expect(gh[2]!.lines).toEqual(['app: #42 Paste the secret (waiting on owner)'])
 })
 
-test('the Log tab, /standup and /handoff work from a session and a finished agent', async ($, on) => {
+test('the Log tab, /standup and /handoff work from a session and a finished agent', UI, async ($, on) => {
   mock.clock(on)
   on('session.start', () => ({ cwd: START.cwd }))
   on('command.register', (_$, e) => ({ value: { command: e.name } }))

@@ -3,6 +3,7 @@ import type { TestBody } from 'claude-code/testing'
 
 import { buildPrompt, docMarkdown, fallbackDraft, issuesOf, makeDoc, openPrPrompt, parseDraft, parseFrontmatter, ticketOf } from '../hooks/features/ship'
 import type { ShipFacts } from '../hooks/features/ship'
+import { UI } from './helpers'
 
 const FACTS: ShipFacts = {
   branch: 'feat/tabs',
@@ -75,14 +76,14 @@ async function ship($: Parameters<TestBody>[0], on: Parameters<TestBody>[1]) {
   return $.command.run({ command: 'ship', args: '' })
 }
 
-test('/ship falls back to a deterministic draft when the model reply is not JSON', async ($, on) => {
+test('/ship falls back to a deterministic draft when the model reply is not JSON', UI, async ($, on) => {
   const r = await ship($, on)
   expect(r.text?.includes('MC-1: Tabs')).toBe(true)
   expect(r.text?.includes('1 ticket still in review')).toBe(true)
   expect(r.text?.includes('Tests: not run by Mission Control')).toBe(true)
 })
 
-test('the /ship card draws on both surfaces and switches to the Arabic client update', async ($, on) => {
+test('the /ship card draws on both surfaces and switches to the Arabic client update', UI, async ($, on) => {
   await ship($, on)
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ plugin: 'mission-control', surface, component: 'CommandOutput', props: { command: 'ship', args: '', text: 'x', isErrored: false } })

@@ -3,6 +3,7 @@ import { expect, mock, test } from 'claude-code/testing'
 import { requestFor, stateOf } from '../hooks/features/info'
 import { parseDollars, setRoute } from '../hooks/features/settings'
 import { DEFAULT_SETTINGS, nameOf } from '../hooks/kit/state'
+import { UI } from './helpers'
 
 const PANE = {
   component: 'Pane' as const,
@@ -26,7 +27,7 @@ test('the typed dollar limit and the route rows parse and clear as expected', as
   expect(setRoute(routed, 'scout', 'model', 'default').routing.byRole.scout?.model).toBe(undefined)
 })
 
-test('the settings sections draw on both surfaces, and a show toggle saves to the store', async ($, on) => {
+test('the settings sections draw on both surfaces, and a show toggle saves to the store', UI, async ($, on) => {
   mock.clock(on)
   // The test engine has no store of its own: answer the store events from a map.
   const stored = new Map<string, unknown>()
@@ -49,7 +50,7 @@ test('the settings sections draw on both surfaces, and a show toggle saves to th
   }
 })
 
-test('help and info draw their static content on both surfaces', async ($, on) => {
+test('help and info draw their static content on both surfaces', UI, async ($, on) => {
   mock.clock(on)
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ plugin: 'mission-control', surface, ...PANE })

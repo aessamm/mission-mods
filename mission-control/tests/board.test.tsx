@@ -5,6 +5,7 @@ import { activityLine, filterTickets, githubCacheOf, parseActivity, parseFrontma
 import { implementerOf, issueNumberOf, startBrief } from '../hooks/kit/brief'
 import { mcDirOfRunLog, resolveIn, samePath } from '../hooks/kit/paths'
 import { DEFAULT_SETTINGS } from '../hooks/kit/state'
+import { UI } from './helpers'
 
 const PANE = {
   component: 'Pane' as const,
@@ -65,7 +66,7 @@ test('activity reads object details, GitHub issues and folds hook lines in a row
   expect(activityLine(a[0]!).text).toBe('M0-201 landed: feat(web): Gen questions · a1595d7a · claude')
 })
 
-test('the Board tab shows the empty state without .ops, on both surfaces', async ($, on) => {
+test('the Board tab shows the empty state without .ops, on both surfaces', UI, async ($, on) => {
   mock.clock(on)
   on('session.start', () => ({ cwd: START.cwd }))
   on('command.register', (_$, e) => ({ value: { command: e.name } }))
@@ -81,7 +82,7 @@ test('the Board tab shows the empty state without .ops, on both surfaces', async
   }
 })
 
-test('tickets and the activity log load from .ops and draw on both surfaces', async ($, on) => {
+test('tickets and the activity log load from .ops and draw on both surfaces', UI, async ($, on) => {
   mock.clock(on)
   on('session.start', () => ({ cwd: START.cwd }))
   on('command.register', (_$, e) => ({ value: { command: e.name } }))
@@ -182,7 +183,7 @@ async function startBoard($: Parameters<TestBody>[0], on: Parameters<TestBody>[1
   }
 }
 
-test('the board draws GitHub issues when the cache beside the repo is this repo’s', async ($, on) => {
+test('the board draws GitHub issues when the cache beside the repo is this repo’s', UI, async ($, on) => {
   const drawn = await boardWith($, on, 'https://github.com/aessamm/mos.git')
   expect(drawn.includes('Daily production database backup')).toBe(true)
   expect(drawn.includes('Waiting on owner · 1')).toBe(true)
@@ -190,7 +191,7 @@ test('the board draws GitHub issues when the cache beside the repo is this repo�
   expect(drawn.includes('Old ops ticket')).toBe(false)
 })
 
-test('another repo’s cache is ignored and the board falls back to .ops/tickets', async ($, on) => {
+test('another repo’s cache is ignored and the board falls back to .ops/tickets', UI, async ($, on) => {
   const drawn = await boardWith($, on, 'https://github.com/someone/else.git')
   expect(drawn.includes('Daily production database backup')).toBe(false)
   expect(drawn.includes('.ops/tickets')).toBe(true)
@@ -211,7 +212,7 @@ const REPO_CACHE = JSON.stringify({
 // No Mission Control beside the repo: an empty read counts as no cache.
 const NO_MC = { '/w/mission-control/.cache/github-tasks.json': '' }
 
-test('with no Mission Control, the repo’s own .claude/board-cache.json fills the board', async ($, on) => {
+test('with no Mission Control, the repo’s own .claude/board-cache.json fills the board', UI, async ($, on) => {
   const drawn = await boardWith($, on, 'git@github.com:aessamm/mission-mods.git', { ...NO_MC, '/w/app/.claude/board-cache.json': REPO_CACHE })
   expect(drawn.includes('Owner: turn on the Mission Mods board workflows')).toBe(true)
   expect(drawn.includes('Waiting on owner · 2')).toBe(true)
@@ -220,13 +221,13 @@ test('with no Mission Control, the repo’s own .claude/board-cache.json fills t
   expect(drawn.includes('Old ops ticket')).toBe(false)
 })
 
-test('Mission Control’s cache for this repo comes before the repo’s own', async ($, on) => {
+test('Mission Control’s cache for this repo comes before the repo’s own', UI, async ($, on) => {
   const both = await boardWith($, on, 'https://github.com/aessamm/mos.git', { '/w/app/.claude/board-cache.json': REPO_CACHE })
   expect(both.includes('aessamm/mos · Agenca #3')).toBe(true)
   expect(both.includes('from .claude/board-cache.json')).toBe(false)
 })
 
-test('a repo cache whose repo is not the origin falls back to .ops/tickets', async ($, on) => {
+test('a repo cache whose repo is not the origin falls back to .ops/tickets', UI, async ($, on) => {
   const drawn = await boardWith($, on, 'https://github.com/someone/else.git', { ...NO_MC, '/w/app/.claude/board-cache.json': REPO_CACHE })
   expect(drawn.includes('Owner: turn on the Mission Mods board workflows')).toBe(false)
   expect(drawn.includes('.ops/tickets')).toBe(true)
@@ -240,7 +241,7 @@ test('the header note names the repo’s own cache, then how old it is', () => {
   expect(staleNote(snap, at + 3 * 3_600_000)).toBe('from .claude/board-cache.json · cached 3h ago')
 })
 
-test('with no remote, the cache counts when mc.config.json points its appDir at the repo', async ($, on) => {
+test('with no remote, the cache counts when mc.config.json points its appDir at the repo', UI, async ($, on) => {
   const drawn = await boardWith($, on, null, { '/w/mission-control/mc.config.json': '{"appDir":"../app"}' })
   expect(drawn.includes('Daily production database backup')).toBe(true)
 })
@@ -274,7 +275,7 @@ test('the Start brief names the ticket, its labels and URL, the implementer and 
   expect(ops).not.toContain('Issue:')
 })
 
-test('picking a GitHub issue shows Start and Open on both surfaces; Start fills the composer', async ($, on) => {
+test('picking a GitHub issue shows Start and Open on both surfaces; Start fills the composer', UI, async ($, on) => {
   const filled: string[] = []
   on('prompt.fill', (_$, e) => { filled.push(e.text); return { isFilled: true } })
   on('store.get', (_$, e) => ({ value: e.key === 'settings' ? { ...DEFAULT_SETTINGS, routing: ROUTED } : undefined }))
@@ -298,7 +299,7 @@ test('picking a GitHub issue shows Start and Open on both surfaces; Start fills 
   }
 })
 
-test('an .ops ticket gets Start but no Open', async ($, on) => {
+test('an .ops ticket gets Start but no Open', UI, async ($, on) => {
   const filled: string[] = []
   on('prompt.fill', (_$, e) => { filled.push(e.text); return { isFilled: true } })
   const ui = await (await startBoard($, on, null, { '/w/app/.ops/tickets/M0-001.md': ticketSrc('M0-001', 'Ops ticket', 'todo') }))('desktop')
@@ -311,7 +312,7 @@ test('an .ops ticket gets Start but no Open', async ($, on) => {
   await ui.unmount()
 })
 
-test('the agents block merges run-log runs of the last 7 days with .ops/runs, on both surfaces', async ($, on) => {
+test('the agents block merges run-log runs of the last 7 days with .ops/runs, on both surfaces', UI, async ($, on) => {
   const day = 86_400_000
   const line = (ts: number, agent: string, extra: Record<string, unknown> = {}) =>
     JSON.stringify({ ts: new Date(ts).toISOString(), actor: agent, event: 'run.completed', source: 'run-log', issue: 35, detail: { agent, durationSec: 600, ...extra } })

@@ -1,6 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { TestBody } from 'claude-code/testing'
 import { mainRecord, titleFor } from '../hooks/features/agents'
+import { UI } from './helpers'
 
 const PANE = {
   component: 'Pane' as const,
@@ -19,7 +20,7 @@ async function squad($: Parameters<TestBody>[0], on: Parameters<TestBody>[1]) {
   await $.turn.complete({ agentId: 'a2', reason: 'error', answer: '', durationMs: 10, isAborted: false, turnId: 't2' })
 }
 
-test('the Agents tab shows the agent that needs you first, then the running ones', async ($, on) => {
+test('the Agents tab shows the agent that needs you first, then the running ones', UI, async ($, on) => {
   await squad($, on)
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ plugin: 'mission-control', surface, ...PANE })
@@ -31,7 +32,7 @@ test('the Agents tab shows the agent that needs you first, then the running ones
   }
 })
 
-test('the Agents tab is always expanded and shows the team, with no Collapse button', async ($, on) => {
+test('the Agents tab is always expanded and shows the team, with no Collapse button', UI, async ($, on) => {
   await squad($, on)
   const ui = await $.ui.mount({ plugin: 'mission-control', surface: 'desktop', ...PANE })
   expect(JSON.stringify(await ui.drawn()).includes('YOUR TEAM')).toBe(true)
@@ -39,7 +40,7 @@ test('the Agents tab is always expanded and shows the team, with no Collapse but
   await ui.unmount()
 })
 
-test('details open per agent with its mission', async ($, on) => {
+test('details open per agent with its mission', UI, async ($, on) => {
   await squad($, on)
   const ui = await $.ui.mount({ plugin: 'mission-control', surface: 'terminal', ...PANE })
   await ui.press({ key: 'more-a1' })
@@ -47,7 +48,7 @@ test('details open per agent with its mission', async ($, on) => {
   await ui.unmount()
 })
 
-test('the main agent sits first in the list, even alone, and goes back to waiting after an answer', async ($, on) => {
+test('the main agent sits first in the list, even alone, and goes back to waiting after an answer', UI, async ($, on) => {
   mock.clock(on)
   on('turn.complete', () => ({ text: '' }))
 

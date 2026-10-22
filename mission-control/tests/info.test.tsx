@@ -2,6 +2,7 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { TestBody } from 'claude-code/testing'
 
 import { parseChangelog, releaseOf, updateToast } from '../hooks/kit/changelog'
+import { UI } from './helpers'
 
 const PANE = {
   component: 'Pane' as const,
@@ -74,7 +75,7 @@ async function startInfo($: Parameters<TestBody>[0], on: Parameters<TestBody>[1]
   return { stored, toasts }
 }
 
-test('Info shows the version, What\'s new and a collapsed changelog; Help shows the version, on both surfaces', async ($, on) => {
+test('Info shows the version, What\'s new and a collapsed changelog; Help shows the version, on both surfaces', UI, async ($, on) => {
   const { stored, toasts } = await startInfo($, on, undefined)
   expect(toasts).toEqual([])                        // a first install stays quiet
   expect(stored.get('seenVersion')).toBe('0.12.0')
@@ -97,7 +98,7 @@ test('Info shows the version, What\'s new and a collapsed changelog; Help shows 
   }
 })
 
-test('after an update, one toast names the new version', async ($, on) => {
+test('after an update, one toast names the new version', UI, async ($, on) => {
   const { stored, toasts } = await startInfo($, on, '0.11.0')
   expect(toasts).toEqual(['Mission Control updated to 0.12.0. What\'s new: /mission info'])
   expect(stored.get('seenVersion')).toBe('0.12.0')

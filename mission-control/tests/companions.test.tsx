@@ -1,6 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 
 import { blockedBy, idsIn, milestonesOf, parseDecisions, parseTicket, statsOf } from '../hooks/features/board'
+import { UI } from './helpers'
 
 const PANE = {
   component: 'Pane' as const,
@@ -71,7 +72,7 @@ test('decisions read from a D-### table, with or without a header, and beside he
   expect(parseDecisions('| Agent | Runs |\n|---|---|\n| codex | 4 |')).toEqual([])
 })
 
-test('without .ops decisions the board reads docs/DECISIONS.md and says so', { timeoutMs: 20_000 }, async ($, on) => {
+test('without .ops decisions the board reads docs/DECISIONS.md and says so', UI, async ($, on) => {
   mock.clock(on)
   on('session.start', () => ({ cwd: START.cwd }))
   on('command.register', (_$, e) => ({ value: { command: e.name } }))
@@ -96,7 +97,7 @@ test('without .ops decisions the board reads docs/DECISIONS.md and says so', { t
   }
 })
 
-test('the board shows what a ticket is blocked by, the agents and the latest decisions', async ($, on) => {
+test('the board shows what a ticket is blocked by, the agents and the latest decisions', UI, async ($, on) => {
   mock.clock(on)
   on('session.start', () => ({ cwd: START.cwd }))
   on('command.register', (_$, e) => ({ value: { command: e.name } }))
@@ -128,7 +129,7 @@ test('the board shows what a ticket is blocked by, the agents and the latest dec
   }
 })
 
-test('missing companion skills are copied in, yours are left alone, and Help says which is which', async ($, on) => {
+test('missing companion skills are copied in, yours are left alone, and Help says which is which', UI, async ($, on) => {
   mock.clock(on)
   on('session.start', () => ({ cwd: START.cwd }))
   on('command.register', (_$, e) => ({ value: { command: e.name } }))

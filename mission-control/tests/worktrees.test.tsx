@@ -2,6 +2,7 @@ import { expect, mock, test } from 'claude-code/testing'
 
 import { treeLine } from '../hooks/features/worktrees'
 import { ago, issueOf, landPrompt, parseLog, parseStatus, parseWorktreeList, removePrompt, sessionPrompt, shortPath, syncOf } from '../hooks/kit/worktrees'
+import { UI } from './helpers'
 
 const PANE = {
   component: 'Pane' as const,
@@ -55,7 +56,7 @@ test('short paths, ages, push state and the composer lines read as the person ex
     .toBe('r (main) · main · abc · x · 1h · clean · in sync')
 })
 
-test('the Worktrees tab reads git once, draws every worktree on both surfaces, and its buttons fill the composer', { timeoutMs: 30_000 }, async ($, on) => {
+test('the Worktrees tab reads git once, draws every worktree on both surfaces, and its buttons fill the composer', UI, async ($, on) => {
   const clock = mock.clock(on, { now: NOW })
   on('session.start', () => ({ cwd: START.cwd }))
   on('command.register', (_$, e) => ({ value: { command: e.name } }))

@@ -2,6 +2,7 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { TestBody } from 'claude-code/testing'
 
 import { budgetState, cacheHit, fmtReset, parseGit } from '../hooks/features/statusline'
+import { UI } from './helpers'
 
 const BAND = (bodyColumns: number) => ({
   component: 'AbovePrompt' as const,
@@ -45,7 +46,7 @@ async function setup($: Parameters<TestBody>[0], on: Parameters<TestBody>[1], us
   await new Promise(r => setTimeout(r, 50))
 }
 
-test('the desktop draws the status line, wide and narrow', async ($, on) => {
+test('the desktop draws the status line, wide and narrow', UI, async ($, on) => {
   await setup($, on, 6, 95)
   for (const cols of [120, 80]) {
     const ui = await $.ui.mount({ plugin: 'mission-control', surface: 'desktop', ...BAND(cols) })
@@ -58,7 +59,7 @@ test('the desktop draws the status line, wide and narrow', async ($, on) => {
   }
 })
 
-test('on a plan, a full 5-hour window pauses new agents and /budget 5h raises the pause point', async ($, on) => {
+test('on a plan, a full 5-hour window pauses new agents and /budget 5h raises the pause point', UI, async ($, on) => {
   await setup($, on, 6, 95)
   const spawn = { tool_use_id: 'tu', provider: { plugin: 'engine', tier: 'core' as const }, parentModel: 'claude-opus-5-5', background: true, fork: false, prompt: 'p', description: 'd', subagentType: 'Explore' }
   expect(String((await $.agent.spawn(spawn)).deny)).toContain('5-hour limit is 95% used')
@@ -66,7 +67,7 @@ test('on a plan, a full 5-hour window pauses new agents and /budget 5h raises th
   expect((await $.agent.spawn(spawn)).deny).toBeUndefined()
 })
 
-test('without plan windows, a spent dollar budget denies a new agent and /budget raises the limit', async ($, on) => {
+test('without plan windows, a spent dollar budget denies a new agent and /budget raises the limit', UI, async ($, on) => {
   await setup($, on, 6, null)
   const spawn = { tool_use_id: 'tu', provider: { plugin: 'engine', tier: 'core' as const }, parentModel: 'claude-opus-5-5', background: true, fork: false, prompt: 'p', description: 'd', subagentType: 'Explore' }
   const denied = await $.agent.spawn(spawn)

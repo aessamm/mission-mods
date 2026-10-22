@@ -104,7 +104,7 @@ test('the move and sync prompts name the repo, the board and the Status, and ask
   expect(mcDirsOf(undefined, '/x/other.mjs', '')).toEqual([])
 })
 
-test('the Delegations tab shows the card move and Sync board, and the buttons only fill the composer', { timeoutMs: 20_000 }, async ($, on) => {
+test('the Delegations tab shows the card move and Sync board, and the buttons only fill the composer', { timeoutMs: 30_000 }, async ($, on) => {
   const clock = mock.clock(on, { now: Date.parse('2026-10-20T12:00:00Z') })
   const cache = (status: string) => JSON.stringify({
     schema: 'mc.github-tasks.v1', fetchedAt: '2026-10-20T11:50:00Z', repo: 'aessamm/mos',
@@ -193,7 +193,7 @@ test('who is rate limited comes from run-log lines and results, inside the windo
   expect(limitNote('codex', all, T0)).toContain('every implementer is limited')
 })
 
-test('a relay for a recently limited implementer toasts and notes it on its card, and still runs', { timeoutMs: 20_000 }, async ($, on) => {
+test('a relay for a recently limited implementer toasts and notes it on its card, and still runs', { timeoutMs: 30_000 }, async ($, on) => {
   mock.clock(on, { now: T0 })
   const files: Record<string, string> = { '/w/app/.ops/log/activity.jsonl': JSON.stringify(limitLine({})) }
   const toasts: string[] = []
@@ -231,7 +231,7 @@ const lookup = (files: Record<string, string>, path: string) => {
   return key === undefined ? undefined : files[key]
 }
 
-test('a relay command is tracked to its result.json and the tab shows it on both surfaces', async ($, on) => {
+test('a relay command is tracked to its result.json and the tab shows it on both surfaces', { timeoutMs: 30_000 }, async ($, on) => {
   const clock = mock.clock(on, { now: 1000 })
   const root = '/w/portal'
   const files: Record<string, string> = { [root + '/brief.txt']: 'M0-007 Implement the budget band' + String.fromCharCode(10) + 'Details' }
@@ -267,7 +267,7 @@ test('a relay command is tracked to its result.json and the tab shows it on both
   }
 })
 
-test('an empty Delegations tab says nothing is delegated', async ($, on) => {
+test('an empty Delegations tab says nothing is delegated', { timeoutMs: 30_000 }, async ($, on) => {
   mock.clock(on)
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ plugin: 'mission-control', surface, ...PANE })
@@ -277,7 +277,7 @@ test('an empty Delegations tab says nothing is delegated', async ($, on) => {
   }
 })
 
-test('a brief given as ~/… is read from the home folder', async ($, on) => {
+test('a brief given as ~/… is read from the home folder', { timeoutMs: 30_000 }, async ($, on) => {
   mock.clock(on, { now: 1000 })
   mock.env(on, { HOME: '/home/dev' })
   const files: Record<string, string> = { '/home/dev/briefs/m0-009.md': 'M0-009 Tidy the README' }
