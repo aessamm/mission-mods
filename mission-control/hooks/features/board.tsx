@@ -119,6 +119,16 @@ export function remoteIs(remote: string, repo: string): boolean {
   return !!want && (r.endsWith(`/${want}`) || r.endsWith(`:${want}`))
 }
 
+// The GitHub repo "owner/name" a remote URL points at (https or ssh), or null off GitHub.
+export function githubRepoOf(remote: string | null | undefined): string | null {
+  const m = /github\.com[/:]([\w.-]+)\/([\w.-]+?)(?:\.git)?\/*$/i.exec((remote ?? '').trim())
+  return m ? `${m[1]}/${m[2]}` : null
+}
+
+// What "Set up a board" fills the composer with, for a repo on GitHub.
+export const setupBoardPrompt = (repo: string): string =>
+  `/board-supervisor Set up GitHub Issues and a project board for ${repo}: labels, the board's Status columns (Todo, In progress, Review, Waiting on owner, Done) and the commit rule, then put the current work on it as issues.`
+
 
 // Ticket ids in a frontmatter list: "[M0-003, M0-004]" or "M0-003, M0-004".
 export const idsIn = (raw: string): string[] => [...new Set(raw.match(/\b[A-Za-z][\w]*-\d+\b/g) ?? [])]
@@ -433,17 +443,22 @@ export function registerBoard(on: On): void {
     return (
       <Box flexDirection="column" gap={1}>
         {tabBar(ui, 'board', badges, s, t => void update($, panel, q => ({ ...q, tab: t })), c.isDesktop ? c.W : 0, c.at)}
-        {snap ? boardBody(c, snap, p.boardFilter, p.isDoneCollapsed, s.look.theme, s.look.motion, go, toggleDone, acts) : emptyBody(c, s, () => void $.prompt.fill({ text: '/ai-team-project-kickoff', mode: 'replace' }))}
+        {snap ? boardBody(c, snap, p.boardFilter, p.isDoneCollapsed, s.look.theme, s.look.motion, go, toggleDone, acts) : emptyBody(c, s, githubRepoOf((await $.session.repo().catch(() => null))?.remote), prompt => void $.prompt.fill({ text: prompt, mode: 'replace' }))}
       </Box>
     )
   }).catch(($, e, next) => paneFailed($, e, next.error, 'board'))
 }
 
 // ---------------------------------------------------------------- drawing
-function emptyBody(c: TabCtx, s: Settings, kickoff: () => void) {
+// On GitHub the empty Board offers board-supervisor's setup; elsewhere, the kickoff.
+function emptyBody(c: TabCtx, s: Settings, repo: string | null, fill: (text: string) => void) {
   const { Button } = c.ui
-  return emptyState(c, s.look, 'board', 'No board in this project', 'Mission Control reads GitHub issues from a Mission Control folder beside the repo (or MC_DIR), else tickets from .ops/tickets. Start one with /ai-team-project-kickoff.', 'architect', '#7F77DD',
-    <Button key="kickoff" label="Start a board" variant="primary" onPress={kickoff} />)
+  const where = 'Mission Control reads GitHub issues from a Mission Control folder beside the repo (or MC_DIR), else tickets from .ops/tickets.'
+  return repo
+    ? emptyState(c, s.look, 'board', 'No board in this project', `${where} This repo is on GitHub: set up its issues and a project board with the board-supervisor skill.`, 'architect', '#7F77DD',
+      <Button key="setup-board" label="Set up a board" variant="primary" onPress={() => fill(setupBoardPrompt(repo))} />)
+    : emptyState(c, s.look, 'board', 'No board in this project', `${where} Start one with /ai-team-project-kickoff.`, 'architect', '#7F77DD',
+      <Button key="kickoff" label="Start a board" variant="primary" onPress={() => fill('/ai-team-project-kickoff')} />)
 }
 
 const ROW = 28, ROW2 = 46

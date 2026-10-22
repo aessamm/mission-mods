@@ -14,6 +14,7 @@ import { registerInfo } from './features/info'
 import { registerLog } from './features/log'
 import { registerSettings } from './features/settings'
 import { registerShip } from './features/ship'
+import { registerSupervise } from './features/supervise'
 import { registerWeekly } from './features/weekly'
 import { registerWorktrees } from './features/worktrees'
 import { registerSkills } from './features/skills'
@@ -68,5 +69,6 @@ export const register: Register = on => {
   registerStatusLine(on)
   registerShip(on)
   registerWeekly(on)
+  registerSupervise(on)
   registerSkills(on)
 }

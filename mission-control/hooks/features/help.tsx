@@ -29,6 +29,7 @@ const COMMANDS: [string, string][] = [
   ['/mission agents', 'Jump straight to a tab: agents, delegations, board, worktrees, log, settings, help, info'],
   ['/standup', 'Today across every project: done, doing, blocked, next'],
   ['/ship', 'PR description, changelog and a client update, after checks'],
+  ['/supervise [text]', 'Start the board-supervisor skill: fills the composer with /board-supervisor and the text'],
   ['/weekly [days]', 'A client update for the week (7 days unless given), in Arabic and English, to copy'],
   ['/budget 5h <percent>', 'When new agents pause: a share of the 5-hour or weekly window (week <percent>), or a daily dollar limit'],
   ['/handoff [note]', 'Write the note the next session starts from'],
@@ -37,6 +38,7 @@ const COMMANDS: [string, string][] = [
 // The skills that ship with the mod: what each does, how to start it, and the tab that follows it.
 const WORKS_WITH: { name: string; what: string; run: string; tab: string }[] = [
   { name: 'ai-team-project-kickoff', what: 'Plans a project for a team of AI agents and writes the .ops/ layer: tickets, decisions, activity log', run: '/ai-team-project-kickoff, or “let’s plan this project”', tab: 'Board' },
+  { name: 'board-supervisor', what: 'Runs the project from GitHub Issues and a live project board, with side sessions doing the work and the supervisor landing it', run: '/supervise, /board-supervisor, or “set up a board for this repo”', tab: 'Board' },
   { name: 'codex-delegate', what: 'Hands a coding task to the Codex CLI; you review the diff', run: '/codex-delegate, or “have Codex do …”', tab: 'Delegations' },
   { name: 'agy-delegate', what: 'Hands a coding task to Google Antigravity (agy)', run: '/agy-delegate, or “have agy do …”', tab: 'Delegations' },
   { name: 'opencode-delegate', what: 'Hands a coding task to the OpenCode CLI', run: '/opencode-delegate, or “run it through OpenCode”', tab: 'Delegations' },
