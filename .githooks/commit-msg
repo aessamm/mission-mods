@@ -1,0 +1,4 @@
+#!/bin/sh
+# Every commit names a GitHub issue (#123) or says no-issue. Enabled with:
+#   git config core.hooksPath .githooks
+exec node "$(git rev-parse --show-toplevel)/scripts/check-commit-msg.mjs" "$1"
