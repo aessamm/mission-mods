@@ -8,7 +8,7 @@ import { callsignOf } from './role'
 export const P = 'mission-control' as const
 
 export const DEFAULT_SETTINGS: Settings = {
-  show: { agents: true, delegations: true, board: true, log: true, statusLine: true, toastsAll: false, skills: true, inbox: true },
+  show: { agents: true, delegations: true, board: true, worktrees: true, log: true, statusLine: true, toastsAll: false, skills: true, inbox: true },
   budget: { mode: 'auto', fiveHourPauseAt: 90, weekPauseAt: 90, dailyUsd: 5, warnAt: 0.8, pauseWhenReached: true },
   routing: { auto: false, maxAgents: 6, byRole: {} },
   look: { theme: 'follow', agentsLayout: 'focus', motion: 'full', names: 'nato' },
@@ -31,6 +31,7 @@ const panel = atom({ plugin: 'mission-control', key: 'panel' } as const, DEFAULT
 const delegations = atom({ plugin: 'mission-control', key: 'delegations' } as const, {} as Record<string, Delegation>)
 const delegationOrder = atom({ plugin: 'mission-control', key: 'delegationOrder' } as const, [] as string[])
 const board = atom({ plugin: 'mission-control', key: 'board' } as const, null as BoardSnapshot | null)
+const worktrees = atom({ plugin: 'mission-control', key: 'worktrees' } as const, null as WorktreeSnapshot | null)
 const log = atom({ plugin: 'mission-control', key: 'log' } as const, null as DayLog | null)
 const handoff = atom({ plugin: 'mission-control', key: 'handoff' } as const, null as Handoff | null)
 const lastDoc = atom({ plugin: 'mission-control', key: 'lastDoc' } as const, null as CommandDoc | null)

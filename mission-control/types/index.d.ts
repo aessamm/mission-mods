@@ -127,6 +127,29 @@ export type BoardSnapshot = {
   readAt: number
 }
 
+// ---------------------------------------------------------------- worktrees (read-only git)
+// One worktree of the session's repo as `git worktree list --porcelain` and a few read-only
+// git calls in it tell. `upstream` absent on a branch: never pushed.
+export type Worktree = {
+  path: string
+  name: string               // folder name, "<repo> (main)" for the main worktree
+  branch?: string            // absent: detached HEAD
+  isMain: boolean
+  isCurrent: boolean         // this session works in it
+  isLocked: boolean
+  isPrunable: boolean        // its folder is gone
+  issue?: string             // "#7", from the branch name or its own commits' subjects
+  sha?: string
+  subject?: string
+  committedAt?: number       // ms
+  changes?: number           // uncommitted paths
+  upstream?: string
+  ahead?: number
+  behind?: number
+  error?: string             // git could not read it
+}
+export type WorktreeSnapshot = { root: string; base: string; items: Worktree[]; readAt: number; error?: string }
+
 // ---------------------------------------------------------------- daily log, standup, handoff, ship
 export type LogEntry = { at: number; project: string; kind: 'agent' | 'delegation' | 'ticket' | 'note' | 'session'; text: string; costUsd?: number }
 export type DayLog = {
@@ -149,9 +172,9 @@ export type BudgetMode = 'auto' | 'plan' | 'dollars'
 export type Alert = { id: string; kind: 'budget' | 'tests' | 'blocked' | 'agent'; tone: 'ok' | 'warn' | 'fail'; label: string; detail?: string; at: number; ratio?: number }
 
 // ---------------------------------------------------------------- settings
-export type TabId = 'agents' | 'delegations' | 'board' | 'log' | 'settings' | 'help' | 'info'
+export type TabId = 'agents' | 'delegations' | 'board' | 'worktrees' | 'log' | 'settings' | 'help' | 'info'
 export type Settings = {
-  show: { agents: boolean; delegations: boolean; board: boolean; log: boolean; statusLine: boolean; toastsAll: boolean; skills: boolean; inbox: boolean }
+  show: { agents: boolean; delegations: boolean; board: boolean; worktrees: boolean; log: boolean; statusLine: boolean; toastsAll: boolean; skills: boolean; inbox: boolean }
   budget: { mode: BudgetMode; fiveHourPauseAt: number; weekPauseAt: number; dailyUsd: number; warnAt: number; pauseWhenReached: boolean }
   routing: { auto: boolean; maxAgents: number; byRole: Record<string, { model?: string; effort?: string }> }
   look: { theme: 'follow' | 'light' | 'dark'; agentsLayout: 'cards' | 'focus' | 'lanes'; motion: 'full' | 'calm' | 'off'; names: 'nato' | 'numbers' | 'custom' }
@@ -187,6 +210,7 @@ export type PanelState = {
   focusId?: string
   boardFilter: 'all' | 'mine' | 'agents' | 'blocked'
   boardPick?: string         // the Board ticket whose Start / Open actions show
+  worktreePick?: string      // the worktree (its path) whose actions show
 }
 
 declare module 'claude-code' {
@@ -201,6 +225,7 @@ declare module 'claude-code' {
       delegations: Record<string, Delegation>
       delegationOrder: string[]
       board: BoardSnapshot | null
+      worktrees: WorktreeSnapshot | null
       log: DayLog | null
       handoff: Handoff | null
       lastDoc: CommandDoc | null

@@ -82,6 +82,7 @@ const SHOW: { id: keyof Settings['show']; name: string; hint: string }[] = [
   { id: 'agents', name: 'Agents', hint: 'Sub-agents with their characters' },
   { id: 'delegations', name: 'Delegations', hint: 'Codex, agy, OpenCode and Claude tasks' },
   { id: 'board', name: 'Board', hint: 'GitHub issues through Mission Control, or .ops/tickets' },
+  { id: 'worktrees', name: 'Worktrees', hint: 'The repo’s worktrees: branch, issue, last commit, changes, push state' },
   { id: 'log', name: 'Daily log', hint: 'Saved per project, used by /standup' },
   { id: 'statusLine', name: 'Status line', hint: 'The line above the prompt' },
   { id: 'inbox', name: 'Waiting on you', hint: 'Owner issues, reviews and failed runs above the prompt, with a toast for new owner issues' },

@@ -8,11 +8,11 @@ import { box, css, fline, right, text } from './draw'
 
 export type TabBadge = { count?: number; attention?: boolean }
 export type Badges = Partial<Record<TabId, TabBadge>> & { live?: number; needs?: number; since?: number }
-const MAIN: [TabId, string][] = [['agents', 'Agents'], ['delegations', 'Delegations'], ['board', 'Board'], ['log', 'Log']]
+const MAIN: [TabId, string][] = [['agents', 'Agents'], ['delegations', 'Delegations'], ['board', 'Board'], ['worktrees', 'Worktrees'], ['log', 'Log']]
 const SIDE: [TabId, string, string][] = [['settings', '⚙', 'Settings'], ['help', '?', 'Help'], ['info', 'ⓘ', 'Info']]
 
 // Tabs owned by a feature file other than agents.tsx; agents.tsx draws everything else.
-export const FEATURE_TABS: TabId[] = ['delegations', 'board', 'log', 'settings', 'help', 'info']
+export const FEATURE_TABS: TabId[] = ['delegations', 'board', 'worktrees', 'log', 'settings', 'help', 'info']
 
 export function badgesFrom(agents: Record<string, AgentRecord>, delegations: Record<string, Delegation>, board: BoardSnapshot | null): Badges {
   const a = Object.values(agents)

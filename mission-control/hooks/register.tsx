@@ -14,13 +14,14 @@ import { registerInfo } from './features/info'
 import { registerLog } from './features/log'
 import { registerSettings } from './features/settings'
 import { registerShip } from './features/ship'
+import { registerWorktrees } from './features/worktrees'
 import { registerSkills } from './features/skills'
 import { registerStatusLine } from './features/statusline'
 
 const panel = atom({ plugin: 'mission-control', key: 'panel' } as const, DEFAULT_PANEL)
 const settings = atom({ plugin: 'mission-control', key: 'settings' } as const, DEFAULT_SETTINGS)
 
-const TABS: TabId[] = ['agents', 'delegations', 'board', 'log', 'settings', 'help', 'info']
+const TABS: TabId[] = ['agents', 'delegations', 'board', 'worktrees', 'log', 'settings', 'help', 'info']
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
@@ -39,7 +40,7 @@ export const register: Register = on => {
     const started = await next(e)
     await $.command.register({
       name: 'mission',
-      description: 'Open Mission Control; add a tab (agents, delegations, board, log, settings, help, info) to jump to it',
+      description: 'Open Mission Control; add a tab (agents, delegations, board, worktrees, log, settings, help, info) to jump to it',
       argumentHint: '[tab]',
     })
     $.ui.open({ id: PANE, title: TITLE }).catch(() => undefined)
@@ -57,6 +58,7 @@ export const register: Register = on => {
   registerAgents(on)
   registerDelegations(on)
   registerBoard(on)
+  registerWorktrees(on)
   registerLog(on)
   registerSettings(on)
   registerHelp(on)
