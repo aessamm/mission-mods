@@ -22,6 +22,9 @@ Your agent team at a glance, in a side panel and a status line above the prompt.
   blocked, to do, a scorecard per implementer (runs, success, time, rate limits over the last
   7 days of run-log, plus `.ops/runs`) and the latest decisions. Pick a ticket and **Start**
   fills the composer with its delegation request; **Open** goes to the issue.
+- **Worktrees** — every worktree of the repo: branch, the issue it names, last commit,
+  uncommitted changes and whether it is pushed, with buttons to review and land, remove or
+  open one in a session (read-only git; the buttons fill the composer).
 - **Log** — the day across projects, with `/standup`, `/handoff` and `/ship`.
 - **Budget** — pauses new agents at a share of your plan's 5-hour or weekly window, or at a
   daily dollar limit.
@@ -92,7 +95,7 @@ Save, quit the Claude desktop app completely and open it again.
 
 | Command | What it does |
 | --- | --- |
-| `/mission [tab]` | Open the panel, or jump to a tab: agents, delegations, board, log, settings, help, info |
+| `/mission [tab]` | Open the panel, or jump to a tab: agents, delegations, board, worktrees, log, settings, help, info |
 | `/standup` | Today across every project: done, doing, blocked, next |
 | `/handoff [note]` | Write the note the next session starts from |
 | `/ship` | PR description, changelog and a client update, after checks (with a GitHub board: the issues the branch's commits name, and which are not in Review yet) |

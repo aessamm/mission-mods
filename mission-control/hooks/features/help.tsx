@@ -25,7 +25,7 @@ type BubbleKind = Parameters<typeof bubble>[2]
 
 const COMMANDS: [string, string][] = [
   ['/mission', 'Open or close this panel'],
-  ['/mission agents', 'Jump straight to a tab: agents, delegations, board, log, settings, help, info'],
+  ['/mission agents', 'Jump straight to a tab: agents, delegations, board, worktrees, log, settings, help, info'],
   ['/standup', 'Today across every project: done, doing, blocked, next'],
   ['/ship', 'PR description, changelog and a client update, after checks'],
   ['/budget 5h <percent>', 'When new agents pause: a share of the 5-hour or weekly window (week <percent>), or a daily dollar limit'],

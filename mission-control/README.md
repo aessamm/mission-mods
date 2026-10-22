@@ -30,6 +30,11 @@ Everything runs locally.
   decisions. Pick a ticket and **Start** fills the composer with its delegation request
   (Codex, or another Claude when Settings' Builder row names a Claude model), with a warning
   when that implementer is rate-limited; **Open** goes to the GitHub issue.
+- **Worktrees**: every worktree of the repository from `git worktree list`: folder, branch,
+  the issue it names (from the branch or its commits), last commit and its age, uncommitted
+  changes, ahead/behind or not pushed. Buttons fill the composer to review and land a
+  branch, remove a clean worktree (never the main one or this session's) or open it in a
+  session. Read when the tab opens, every minute while it is open, and on Refresh.
 - **Log**: the day across projects, with `/standup`, `/handoff` and `/ship`.
 - **Budget**: pauses new sub-agents at a share of your plan's 5-hour or weekly window, or at
   a daily dollar limit.
@@ -49,7 +54,7 @@ installers and the terminal command. Then start a new session and type `/mission
 
 | Command | What it does |
 | --- | --- |
-| `/mission [tab]` | Open the panel, or jump to a tab: agents, delegations, board, log, settings, help, info |
+| `/mission [tab]` | Open the panel, or jump to a tab: agents, delegations, board, worktrees, log, settings, help, info |
 | `/standup` | Today across every project: done, doing, blocked, next |
 | `/handoff [note]` | Write the note the next session starts from |
 | `/ship` | PR description, changelog and a client update, after checks (with a GitHub board: the issues the branch's commits name, and which are not in Review yet) |
@@ -85,6 +90,9 @@ Only `git`, with fixed read-only commands:
   seconds. The folder is the one the delegate command was given.
 - On `/ship`: `git rev-parse`, `git log`, `git rev-list --count` and `git diff --shortstat`
   between the base branch and `HEAD`, in the session's folder (a worktree ships its own branch).
+- On the Worktrees tab, while it is open (when it opens, every minute, and on Refresh):
+  `git worktree list --porcelain` once, then in each worktree `git status --porcelain=v2
+  --branch` and `git log` for its last commits, each with a 5-second timeout. All read-only.
 
 It never merges, pushes or opens a pull request. Buttons for those put the request in the
 prompt, and nothing happens until you send it.
