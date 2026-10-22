@@ -1,5 +1,17 @@
 # Changelog
 
+## mission-control 0.11.0 — act from the board
+
+- Board: pick a ticket that is not done; **Start** fills the composer with a delegation
+  request for it (Codex, or another Claude when Settings › Agents and models › Builder names
+  a Claude model; GitHub issues get run-log `--issue N`), **Open** links to the issue (#1).
+- Waiting on you: rows under the status line for GitHub issues in Waiting on owner, runs
+  waiting for review and failed runs, each with a button that fills the composer, and a toast
+  when an owner issue appears. Settings › Panel › Waiting on you turns it off (#2).
+- Delegations: a finished run whose GitHub card is behind offers "Move #N to Review" (or Done
+  once marked merged), a confirm-first request in the composer; **Sync board** offers
+  Mission Control's `board-sync.mjs --dry-run`. The mod still moves nothing itself (#3).
+
 ## mission-control 0.10.0 — GitHub issues, Mission Control's new log
 
 - Board: when a Mission Control folder (`MC_DIR`, the one holding `MC_RUN_LOG`'s script, or

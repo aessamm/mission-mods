@@ -17,14 +17,21 @@ Everything runs locally.
 - **Delegations**: tasks handed to Codex, Antigravity (agy), OpenCode or another Claude
   through the delegate skills, followed to their result with diff and test counts, with the
   GitHub issue each one is for. Runs other sessions logged through Mission Control's
-  `run-log.mjs` today show up too.
+  `run-log.mjs` today show up too. When a finished run's GitHub card is behind, a button
+  offers to move it to Review or Done, and **Sync board** offers Mission Control's
+  `board-sync.mjs`; both only fill the composer.
 - **Board**: the repository's GitHub issues in their project-board columns (doing, review,
   waiting on owner, blocked, to do) when a Mission Control folder has them cached, else the
   tickets in its `.ops/` folder with what each one is blocked by; plus the activity log, the
-  agents' run stats and the latest decisions.
+  agents' run stats and the latest decisions. Pick a ticket and **Start** fills the composer
+  with its delegation request (Codex, or another Claude when Settings' Builder row names a
+  Claude model); **Open** goes to the GitHub issue.
 - **Log**: the day across projects, with `/standup`, `/handoff` and `/ship`.
 - **Budget**: pauses new sub-agents at a share of your plan's 5-hour or weekly window, or at
   a daily dollar limit.
+- **Waiting on you** : rows under the status line for GitHub issues in Waiting on owner,
+  runs waiting for your review and failed runs, each with a button that fills the composer;
+  a toast when an owner issue appears.
 - **Status line**: folder and git, context, 5-hour and weekly usage, the last turn and the
   running agents.
 
