@@ -43,6 +43,8 @@ Everything runs locally.
   a toast when an owner issue appears.
 - **Status line**: folder and git, context, 5-hour and weekly usage, the last turn and the
   running agents.
+- **What's new**: Info shows the mod's version, what changed in it and the earlier releases
+  from its `CHANGELOG.md`; after an update a toast says so once.
 
 ## Setup
 

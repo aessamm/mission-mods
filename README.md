@@ -33,6 +33,8 @@ Your agent team at a glance, in a side panel and a status line above the prompt.
   a toast when an owner issue appears.
 - **Status line** — folder and git, context, 5-hour and weekly usage, the last turn and the
   running agents; detailed, semi-compact or compact.
+- **What's new** — Info shows the mod's version, what changed in it and the earlier releases
+  from its CHANGELOG; after an update a toast says so once.
 
 ## Install
 

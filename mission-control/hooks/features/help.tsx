@@ -5,7 +5,7 @@ import { atom, read, update } from 'claude-code'
 import { failedView } from '../kit/ui'
 import type { EngineInterface, On, RenderElement } from 'claude-code'
 
-import type { AgentRecord, BoardSnapshot, CompanionSkill, Delegation, Settings } from '../../types'
+import type { AgentRecord, BoardSnapshot, CompanionSkill, Delegation, Settings, WhatsNew } from '../../types'
 import { activeTab, badgesFrom, tabBar } from '../kit/chrome'
 import { barText, bubble, estText, hline, para, progress, svg, text, textWidth, wide } from '../kit/draw'
 import { section } from '../kit/ui'
@@ -20,6 +20,7 @@ const delegations = atom({ plugin: 'mission-control', key: 'delegations' } as co
 const panel = atom({ plugin: 'mission-control', key: 'panel' } as const, DEFAULT_PANEL)
 const settings = atom({ plugin: 'mission-control', key: 'settings' } as const, DEFAULT_SETTINGS)
 const skills = atom({ plugin: 'mission-control', key: 'skills' } as const, null as CompanionSkill[] | null)
+const whatsNew = atom({ plugin: 'mission-control', key: 'whatsNew' } as const, null as WhatsNew | null)
 
 type BubbleKind = Parameters<typeof bubble>[2]
 
@@ -167,7 +168,7 @@ function terminalTable(ui: UiTable, key: string, rows: [string, string][]): Rend
 }
 
 // ---------------------------------------------------------------- the tab
-function renderHelp(ctx: TabCtx, s: Settings, companions: CompanionSkill[] | null): RenderElement {
+function renderHelp(ctx: TabCtx, s: Settings, companions: CompanionSkill[] | null, version: string): RenderElement {
   const { ui, isDesktop, W } = ctx
   const { Box, Text } = ui
   const Svg = 'Svg' in ui ? ui.Svg : undefined
@@ -183,6 +184,7 @@ function renderHelp(ctx: TabCtx, s: Settings, companions: CompanionSkill[] | nul
   const prog = progressSvg(W, s)
   return (
     <Box flexDirection="column">
+      {version ? <Text key="help-version" dimColor>{`Mission Control v${version} · What's new is in Info (/mission info)`}</Text> : null}
       {section(ctx, look, 'cmds', 'Commands', 'Type them in the prompt.', true)}
       {table('cmds', COMMANDS)}
 
@@ -225,7 +227,7 @@ export function registerHelp(on: On): void {
     return (
       <Box flexDirection="column" gap={1}>
         {tabBar(ui, 'help', badges, s, t => void update($, panel, q => ({ ...q, tab: t })), c.isDesktop ? c.W : 0, c.at)}
-        {renderHelp(c, s, await read($, skills))}
+        {renderHelp(c, s, await read($, skills), (await read($, whatsNew))?.version ?? '')}
       </Box>
     )
   }).catch(($, e, next) => paneFailed($, e, next.error, 'help'))

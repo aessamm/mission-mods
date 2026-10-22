@@ -191,6 +191,10 @@ export type Settings = {
 // not installed, or not built yet.
 export type FamilyState = 'on' | 'off' | 'available' | 'soon'
 export type FamilyMember = { id: string; name: string; what: string; state: FamilyState; version?: string }
+// One `## mission-control X.Y.Z — title` entry of the mod's CHANGELOG.md.
+export type Release = { version: string; title: string; bullets: string[] }
+// The mod's own version (its plugin.json) and its changelog, read at session start.
+export type WhatsNew = { version: string; releases: Release[] }
 
 // The skills that ship with the mod: yours (a copy you made, never touched), mod (copied
 // by Mission Control), missing, or failed (the copy could not be written).
@@ -236,6 +240,7 @@ declare module 'claude-code' {
       alerts: Alert[]
       settings: Settings
       family: FamilyMember[] | null
+      whatsNew: WhatsNew | null
       skills: CompanionSkill[] | null
     }
   }
