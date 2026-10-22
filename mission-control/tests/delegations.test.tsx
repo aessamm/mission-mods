@@ -3,6 +3,7 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { BoardSnapshot, Delegation, TicketStatus } from '../types'
 import { applyResult, cardMoveFor, fromRun, fromRunLog, movePrompt, parseRelay, parseShortstat, progressOf, promptFor, sameRun, syncPrompt, taskOf, ticketOf } from '../hooks/features/delegations'
 import { mcDirsOf } from '../hooks/kit/paths'
+import { alternativeTo, isLimitedResult, limitedAt, limitFromLogLine, limitNote, limitsFromDelegations } from '../hooks/kit/limits'
 
 
 const PANE = {
@@ -150,6 +151,63 @@ test('the Delegations tab shows the card move and Sync board, and the buttons on
   expect(drawn).not.toContain('Move #28')
   expect(drawn).toContain('Sync board')
   await ui.unmount()
+})
+
+const T0 = Date.parse('2026-10-20T12:00:00Z')
+const limitLine = (o: Record<string, unknown>) => ({ ts: '2026-10-20T11:40:00Z', actor: 'codex', event: 'run.completed', source: 'run-log', detail: { agent: 'codex', rateLimited: true }, ...o })
+
+test('who is rate limited comes from run-log lines and results, inside the window', () => {
+  expect(limitFromLogLine(limitLine({}))).toEqual({ tool: 'codex', at: Date.parse('2026-10-20T11:40:00Z') })
+  expect(limitFromLogLine(limitLine({ event: 'run.failed', actor: 'agy', detail: { agent: 'agy', reason: 'usage limit reached' } }))?.tool).toBe('agy')
+  expect(limitFromLogLine(limitLine({ event: 'run.failed', detail: { agent: 'codex', reason: 'exit 1' } }))).toBeNull()
+  expect(limitFromLogLine(limitLine({ detail: { agent: 'codex', rateLimited: false } }))).toBeNull()
+  expect(limitFromLogLine(limitLine({ event: 'run.started' }))).toBeNull()
+  expect(limitFromLogLine(limitLine({ source: 'hook' }))).toBeNull()
+  expect(isLimitedResult({ status: 'failed', stderrTail: ['HTTP 429 Too Many Requests'] })).toBe(true)
+  expect(isLimitedResult({ rateLimited: true })).toBe(true)
+  expect(isLimitedResult({ status: 'completed', finalMessage: 'Done' })).toBe(false)
+  expect(applyResult({ status: 'failed', error: 'rate limit exceeded' }, 5)).toMatchObject({ status: 'failed', rateLimited: true })
+  expect(limitsFromDelegations([{ ...base, rateLimited: true, endedAt: 9 }, base])).toEqual([{ tool: 'agy', at: 9 }])
+
+  const hits = [{ tool: 'codex' as const, at: T0 - 20 * 60_000 }, { tool: 'codex' as const, at: T0 - 50 * 60_000 }, { tool: 'agy' as const, at: T0 - 61 * 60_000 }]
+  const limited = limitedAt(hits, T0)
+  expect(limited).toEqual({ codex: { at: T0 - 20 * 60_000, until: T0 + 40 * 60_000 } })
+  expect(limitedAt(hits, T0, 10 * 60_000)).toEqual({})
+  expect(alternativeTo('codex', limited)).toBe('claude')
+  expect(alternativeTo('claude', { codex: { at: 0, until: 1 } })).toBe('agy')
+  expect(limitNote('codex', limited, T0)).toBe('Codex hit a rate limit 20 min ago (counted as limited for 40 more min); Claude is free to take it instead.')
+  expect(limitNote('agy', limited, T0)).toBe('')
+  const all = { codex: { at: T0, until: T0 + 1 }, agy: { at: T0, until: T0 + 1 }, opencode: { at: T0, until: T0 + 1 }, claude: { at: T0, until: T0 + 1 } }
+  expect(limitNote('codex', all, T0)).toContain('every implementer is limited')
+})
+
+test('a relay for a recently limited implementer toasts and notes it on its card, and still runs', { timeoutMs: 20_000 }, async ($, on) => {
+  mock.clock(on, { now: T0 })
+  const files: Record<string, string> = { '/w/app/.ops/log/activity.jsonl': JSON.stringify(limitLine({})) }
+  const toasts: string[] = []
+  on('ui.toast', (_$, e) => { toasts.push(e.text); return { value: undefined as never } })
+  on('tool.call', () => ({ result: 'ok' as never, text: 'ok' }))
+  on('command.register', (_$, e) => ({ value: { command: e.name } }))
+  on('tool.register', () => ({ value: undefined as never }))
+  on('session.root', () => ({ value: '/w/app' }))
+  on('session.repo', () => ({ value: { root: '/w/app', name: 'app', remote: null, internal: false } }))
+  on('fs.read', (_$, e) => (lookup(files, e.path) === undefined ? { deny: 'ENOENT' } : { value: lookup(files, e.path) as string }))
+  on('fs.stat', () => ({ deny: 'ENOENT' }))
+  on('fs.list', () => ({ value: [] }))
+  on('process.run', () => ({ value: { exitCode: 1, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
+  const r = await $.tool.call({ tool: 'Bash', tool_use_id: 'tl1', command: 'node /s/codex-delegate/scripts/relay.mjs --cd /w/app' } as never)
+  expect(JSON.stringify(r)).toContain('ok')
+  expect(toasts).toEqual(['Codex hit a rate limit 20 min ago (counted as limited for 40 more min); Claude is free to take it instead.'])
+  await $.tool.call({ tool: 'Bash', tool_use_id: 'tl2', command: 'node /s/agy-delegate/scripts/relay.mjs --cd /w/app' } as never)
+  expect(toasts.length).toBe(1)
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ plugin: 'mission-control', surface, ...PANE })
+    await ui.press({ key: 'tab-delegations' })
+    const drawn = JSON.stringify(await ui.drawn())
+    expect(drawn).toContain('Codex hit a rate limit 20 min ago')
+    expect(drawn.split('hit a rate limit').length).toBe(2)
+    await ui.unmount()
+  }
 })
 
 // The engine may hand fs hooks an absolute path in its own spelling: "/w/portal/x" can arrive

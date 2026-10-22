@@ -13,6 +13,8 @@ import { fmtSpan, fmtTime } from '../kit/role'
 import { expandHome, homeOf, isWindowsHome, mcDirsOf, tmpOf } from '../kit/paths'
 import type { HomeEnv } from '../kit/paths'
 import { DEFAULT_PANEL, DEFAULT_SETTINGS, localDay, makeCtx, settingsOf } from '../kit/state'
+import { isLimitedResult, limitedAt, limitFromLogLine, limitNote, limitsFromDelegations, toolOf } from '../kit/limits'
+import type { LimitHit } from '../kit/limits'
 import type { PaneInput } from '../kit/state'
 import type { TabCtx } from '../kit/state'
 
@@ -138,6 +140,7 @@ export function applyResult(raw: unknown, now: number): Partial<Delegation> {
     ...(model ? { model } : {}),
     ...(touched !== undefined ? { files: touched } : {}),
     ...(tests ? { tests } : {}),
+    ...(isLimitedResult(raw) ? { rateLimited: true } : {}),
   }
 }
 
@@ -174,7 +177,7 @@ export function fromRunLog(raw: unknown, titles: Map<string, string>): Delegatio
   if (!isObj(raw) || raw.source !== 'run-log' || raw.event !== 'run.completed') return null
   const d = isObj(raw.detail) ? raw.detail : {}
   const who = `${str(d.agent)} ${str(raw.actor)}`
-  const tool: DelegationTool | undefined = /codex/i.test(who) ? 'codex' : /agy|antigravity/i.test(who) ? 'agy' : /opencode/i.test(who) ? 'opencode' : /claude/i.test(who) ? 'claude' : undefined
+  const tool = toolOf(who)
   const ended = Date.parse(str(raw.ts))
   if (!tool || !Number.isFinite(ended)) return null
   const issue = num(raw.issue)
@@ -187,7 +190,7 @@ export function fromRunLog(raw: unknown, titles: Map<string, string>): Delegatio
     ...(ticket ? { ticket } : {}), project: baseName(cwd) || 'project', cwd,
     startedAt: ended - (secs && secs > 0 ? secs * 1000 : 1), endedAt: ended, status: 'done', now: 'Finished',
     ...(str(d.branch) && str(d.branch) !== 'HEAD' ? { branch: str(d.branch) } : {}), ...(str(d.model) ? { model: str(d.model) } : {}),
-    ...(files !== undefined ? { files } : {}),
+    ...(files !== undefined ? { files } : {}), ...(d.rateLimited === true ? { rateLimited: true } : {}),
   }
 }
 
@@ -342,7 +345,28 @@ async function record($: EngineInterface, command: unknown, toolUseId: unknown):
   }
   await update($, delegations, m => ({ ...m, [id]: d }))
   await update($, delegationOrder, l => (l.includes(id) ? l : [...l, id]))
+  await warnIfLimited($, d)
   await gitBranch($, id, cwd)
+}
+
+// A relay starting for an implementer that hit a rate limit recently: a toast and a note on
+// its card naming another one. Observe only; the run goes ahead.
+async function warnIfLimited($: EngineInterface, d: Delegation): Promise<void> {
+  try {
+    const hits: LimitHit[] = limitsFromDelegations(Object.values(await read($, delegations)).filter(x => x.id !== d.id))
+    const repo = await $.session.repo().catch(() => null)
+    const src = repo ? await $.fs.read(joinPath(repo.root, '.ops/log/activity.jsonl')).catch(() => '') : ''
+    if (typeof src === 'string' && src.includes('"run-log"')) {
+      for (const line of src.split(/\r?\n/).slice(-400)) {
+        if (!line.includes('"run-log"')) continue
+        try { const h = limitFromLogLine(JSON.parse(line)); if (h) hits.push(h) } catch { /* a bad line */ }
+      }
+    }
+    const note = limitNote(d.tool, limitedAt(hits, d.startedAt), d.startedAt)
+    if (!note) return
+    await patch($, d.id, { limitNote: note })
+    $.ui.toast(note)
+  } catch { /* observe only */ }
 }
 
 // Without --out-dir the relay picks <tmp>/delegate-relay/<folder>-<time>; find the one for this run.
@@ -630,6 +654,8 @@ async function renderTab($: EngineInterface, ctx: TabCtx): Promise<RenderElement
     }
     return null
   }
+  const limitOf = (d: Delegation): RenderElement | null =>
+    d.limitNote && d.status === 'running' ? <Text key={`limit-${d.id}`} color="warning" wrap="wrap">{`${isDesktop ? '' : '   '}⚠ ${d.limitNote}`}</Text> : null
   const logOf = (d: Delegation): RenderElement | null =>
     d.status === 'failed' && p.expanded[`log-${d.id}`]
       ? <Text key={`logtext-${d.id}`} wrap="wrap">{clip(d.error || d.finalMessage || 'No log was recorded.', 1200)}</Text>
@@ -668,6 +694,7 @@ async function renderTab($: EngineInterface, ctx: TabCtx): Promise<RenderElement
         {live.map(d => (
           <Box key={`card-${d.id}`} flexDirection="column" gap={1}>
             <Svg source={cardSvg(W, d, at, theme, motion)} alt={`${toolLabel(d)}: ${d.task}, ${d.project}, ${d.now}`} height={CARD_H} />
+            {limitOf(d)}
             {buttons(d)}
             {logOf(d)}
           </Box>
@@ -693,6 +720,7 @@ async function renderTab($: EngineInterface, ctx: TabCtx): Promise<RenderElement
         <Text wrap="truncate-end" color={d.status === 'failed' ? 'error' : undefined}>{`   ${d.now}`}</Text>
         <Text wrap="truncate-end">{'   '}{pr.kind === 'est' ? <Text dimColor>{estText(pr.ratio, barW)}</Text> : <Text color={pr.kind === 'done' ? 'success' : undefined} dimColor={pr.kind === 'halted'}>{barText(pr.ratio, barW)}</Text>}<Text>{`  ${pr.kind === 'est' ? '~' : ''}${Math.round(pr.ratio * 100)}%  `}</Text><Text dimColor>{pr.count}</Text></Text>
         <Text dimColor wrap="truncate-end">{`   ${stat} · ${tests}`}</Text>
+        {limitOf(d)}
         {buttons(d)}
         {logOf(d)}
       </Box>

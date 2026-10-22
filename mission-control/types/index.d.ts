@@ -76,6 +76,8 @@ export type Delegation = {
   model?: string
   finalMessage?: string
   error?: string
+  rateLimited?: boolean      // its result said it hit a rate limit
+  limitNote?: string         // set at start when its implementer was limited recently
 }
 
 // ---------------------------------------------------------------- board (GitHub issues or .ops/)
