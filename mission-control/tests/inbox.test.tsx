@@ -3,7 +3,7 @@ import type { TestBody } from 'claude-code/testing'
 
 import type { BoardSnapshot, Delegation } from '../types'
 import { inboxItems, inboxSummary, issuePrompt, toastFor } from '../hooks/features/inbox'
-import { promptFor } from '../hooks/features/delegations'
+import { promptFor } from '../hooks/kit/prompts'
 
 const PANE = {
   component: 'Pane' as const,

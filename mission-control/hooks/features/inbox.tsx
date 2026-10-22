@@ -10,7 +10,7 @@ import type { EngineInterface, On, RenderElement } from 'claude-code'
 import type { BoardSnapshot, Delegation } from '../../types'
 import { clip } from '../kit/chrome'
 import { DEFAULT_SETTINGS, settingsOf } from '../kit/state'
-import { promptFor } from './delegations'
+import { promptFor } from '../kit/prompts'
 
 const board = atom({ plugin: 'mission-control', key: 'board' } as const, null as BoardSnapshot | null)
 const delegations = atom({ plugin: 'mission-control', key: 'delegations' } as const, {} as Record<string, Delegation>)

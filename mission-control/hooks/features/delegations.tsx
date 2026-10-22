@@ -17,6 +17,7 @@ import { isLimitedResult, limitedAt, limitNote, limitsFromActivity, limitsFromDe
 import type { LimitHit } from '../kit/limits'
 import type { PaneInput } from '../kit/state'
 import type { TabCtx } from '../kit/state'
+import { TOOLS, firstLine, promptFor, toolLabel } from '../kit/prompts'
 
 const agents = atom({ plugin: 'mission-control', key: 'agents' } as const, {} as Record<string, AgentRecord>)
 const board = atom({ plugin: 'mission-control', key: 'board' } as const, null as BoardSnapshot | null)
@@ -25,12 +26,6 @@ const delegationOrder = atom({ plugin: 'mission-control', key: 'delegationOrder'
 const panel = atom({ plugin: 'mission-control', key: 'panel' } as const, DEFAULT_PANEL)
 const settings = atom({ plugin: 'mission-control', key: 'settings' } as const, DEFAULT_SETTINGS)
 
-const TOOLS: Record<DelegationTool, { name: string; color: string }> = {
-  codex: { name: 'Codex', color: '#1f1f1f' },
-  agy: { name: 'agy', color: '#378add' },
-  opencode: { name: 'OpenCode', color: '#ba7517' },
-  claude: { name: 'Claude', color: '#d97757' },
-}
 const EST_MS = 6 * 60 * 1000
 const POLL_MS = 4000
 const DIFF_EVERY_MS = 20000
@@ -44,7 +39,6 @@ const num = (v: unknown): number | undefined => (typeof v === 'number' && Number
 const baseName = (p: string): string => p.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? p
 const joinPath = (a: string, b: string): string => `${a.replace(/[\\/]+$/, '')}/${b}`
 const isAbs = (p: string): boolean => /^([A-Za-z]:)?[\\/]/.test(p) || p.startsWith('~')
-const firstLine = (s: string): string => s.split('\n').find(l => l.trim() !== '')?.trim() ?? ''
 
 export type RelayCall = { tool: DelegationTool; cd?: string; brief?: string; model?: string; outDir?: string; heredoc?: string; issue?: string }
 
@@ -200,31 +194,12 @@ export const sameRun = (a: Delegation, b: Delegation): boolean =>
   && (Math.abs(a.startedAt - b.startedAt) < 10 * 60_000 || Math.abs((a.endedAt ?? a.startedAt) - (b.endedAt ?? b.startedAt)) < 10 * 60_000)
 
 const elapsedOf = (d: Delegation, at: number): number => Math.max(0, (d.endedAt ?? at) - d.startedAt)
-const toolLabel = (d: Delegation): string => TOOLS[d.tool]?.name ?? d.tool
 
 export function progressOf(d: Delegation, at: number): { ratio: number; kind: 'est' | 'done' | 'halted'; count: string } {
   const ms = elapsedOf(d, at)
   if (d.status === 'running') return { ratio: Math.min(0.95, ms / EST_MS), kind: 'est', count: `${fmtSpan(ms)} of ~${fmtSpan(EST_MS)}` }
   if (d.status === 'failed') return { ratio: Math.min(0.95, ms / EST_MS), kind: 'halted', count: `stopped at ${fmtTime(ms)}` }
   return { ratio: 1, kind: 'done', count: 'done' }
-}
-
-// The prompts the buttons put in the composer. Nothing here runs git.
-export function promptFor(kind: 'retry' | 'fix' | 'review' | 'merge' | 'branch', d: Delegation): string {
-  const where = `${d.branch ? `on ${d.branch} ` : ''}in ${d.cwd}`
-  const who = toolLabel(d)
-  switch (kind) {
-    case 'retry':
-      return `Retry the ${who} delegation "${d.task}" in ${d.cwd}. ${d.resultPath ? `Read ${d.resultPath} to see why it failed, then` : 'Find out why it failed, then'} dispatch it again with the same brief${d.model ? ` and model ${d.model}` : ''}.`
-    case 'fix':
-      return `${who} failed on "${d.task}" ${where}${d.error ? ` (${clip(firstLine(d.error), 160)})` : ''}. Look at what it left behind and fix it here yourself instead of delegating again.`
-    case 'review':
-      return `Review the diff from ${who} ${where} and tell me if it is ready to merge.`
-    case 'merge':
-      return `If the diff from ${who} ${where} passes review and its tests are green, show me the merge plan for "${d.task}" and wait for my go before running anything.`
-    case 'branch':
-      return `Show me how to open ${d.branch ? `the branch ${d.branch}` : `the ${who} working tree`} in ${d.cwd} so I can look at the changes myself.`
-  }
 }
 
 // ---------------------------------------------------------------- board cards (suggested, never moved here)

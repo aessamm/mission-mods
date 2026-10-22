@@ -1,7 +1,8 @@
 import { expect, mock, test } from 'claude-code/testing'
 
 import type { BoardSnapshot, Delegation, TicketStatus } from '../types'
-import { applyResult, cardMoveFor, fromRun, fromRunLog, movePrompt, parseRelay, parseShortstat, progressOf, promptFor, sameRun, syncPrompt, taskOf, ticketOf } from '../hooks/features/delegations'
+import { applyResult, cardMoveFor, fromRun, fromRunLog, movePrompt, parseRelay, parseShortstat, progressOf, sameRun, syncPrompt, taskOf, ticketOf } from '../hooks/features/delegations'
+import { promptFor } from '../hooks/kit/prompts'
 import { mcDirsOf } from '../hooks/kit/paths'
 import { alternativeTo, isLimitedResult, limitedAt, limitFromLogLine, limitNote, limitsFromActivity, limitsFromDelegations } from '../hooks/kit/limits'
 
