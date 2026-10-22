@@ -23,11 +23,12 @@ Your agent team at a glance, in a side panel and a status line above the prompt.
   waiting on owner, blocked, to do, a scorecard per implementer (runs, success, time, rate
   limits over the last 7 days of run-log, plus `.ops/runs`) and the latest decisions (`D-###`
   headings or a decisions table, from `.ops/memory/` or `docs/DECISIONS.md`). Pick a ticket
-  and **Start** fills the composer with its delegation request; **Open** goes to the issue.
+  and **Start** fills the composer with its delegation request; **Open** goes to the issue; the row also shows
+  the time its run-log runs took so far.
 - **Worktrees** — every worktree of the repo: branch, the issue it names, last commit,
   uncommitted changes and whether it is pushed, with buttons to review and land, remove or
   open one in a session (read-only git; the buttons fill the composer).
-- **Log** — the day across projects, with `/standup`, `/handoff` and `/ship`.
+- **Log** — the day across projects, with `/standup`, `/handoff`, `/ship` and `/weekly` (a client update for the week, in Arabic and English).
 - **Budget** — pauses new agents at a share of your plan's 5-hour or weekly window, or at a
   daily dollar limit.
 - **Waiting on you** — rows under the status line for GitHub issues in Waiting on owner,
@@ -103,6 +104,7 @@ Save, quit the Claude desktop app completely and open it again.
 | `/standup` | Today across every project: done, doing, blocked, next |
 | `/handoff [note]` | Write the note the next session starts from |
 | `/ship` | PR description, changelog and a client update, after checks (with a GitHub board: the issues the branch's commits name, and which are not in Review yet) |
+| `/weekly [days]` | A client update for the last 7 days (or the days given), in Arabic and English, from the issues closed and in progress, the commits and the day log; a card to copy from, nothing is sent |
 | `/budget 5h <percent>` | When new agents pause: a share of the 5-hour window, `week <percent>`, `plan`, `auto` or a daily dollar amount |
 
 ## Companion skills

@@ -31,13 +31,14 @@ Everything runs locally.
   `| D-### | date | decision | who |` table, from `.ops/memory/DECISIONS.md` or
   `docs/DECISIONS.md`. Pick a ticket and **Start** fills the composer with its delegation request
   (Codex, or another Claude when Settings' Builder row names a Claude model), with a warning
-  when that implementer is rate-limited; **Open** goes to the GitHub issue.
+  when that implementer is rate-limited; **Open** goes to the GitHub issue. The picked
+  ticket's row also shows its run-log runs so far: count, total time and runs per implementer.
 - **Worktrees**: every worktree of the repository from `git worktree list`: folder, branch,
   the issue it names (from the branch or its commits), last commit and its age, uncommitted
   changes, ahead/behind or not pushed. Buttons fill the composer to review and land a
   branch, remove a clean worktree (never the main one or this session's) or open it in a
   session. Read when the tab opens, every minute while it is open, and on Refresh.
-- **Log**: the day across projects, with `/standup`, `/handoff` and `/ship`.
+- **Log**: the day across projects, with `/standup`, `/handoff`, `/ship` and `/weekly`.
 - **Budget**: pauses new sub-agents at a share of your plan's 5-hour or weekly window, or at
   a daily dollar limit.
 - **Waiting on you** : rows under the status line for GitHub issues in Waiting on owner,
@@ -62,6 +63,7 @@ installers and the terminal command. Then start a new session and type `/mission
 | `/standup` | Today across every project: done, doing, blocked, next |
 | `/handoff [note]` | Write the note the next session starts from |
 | `/ship` | PR description, changelog and a client update, after checks (with a GitHub board: the issues the branch's commits name, and which are not in Review yet) |
+| `/weekly [days]` | A client update for the last 7 days (or the days given), in Arabic and English, from the issues closed and in progress, the commits and the day log; a card to copy from, nothing is sent |
 | `/budget 5h <percent>` | When new agents pause: a share of the 5-hour window, `week <percent>`, `plan`, `auto` or a daily dollar amount |
 
 ## Companion skills
@@ -79,8 +81,8 @@ and need Node.js. Mission Control does not read those CLIs' keys or settings.
 ### Network
 
 Mission Control sends nothing over the network: no telemetry, no analytics, no calls to any
-server. `/standup` and `/handoff` give today's log, and `/ship` gives the branch's commits
-and the tickets or GitHub issues they name, to the session's own model through Claude Code's connection, the same way a
+server. `/standup` and `/handoff` give today's log, `/ship` gives the branch's commits
+and the tickets or GitHub issues they name, and `/weekly` gives the week's issues, commits and day logs, to the session's own model through Claude Code's connection, the same way a
 prompt you type is sent. The `www.w3.org` address in the code is the SVG namespace used to
 draw the panel; nothing is fetched from it.
 
@@ -94,6 +96,7 @@ Only `git`, with fixed read-only commands:
   seconds. The folder is the one the delegate command was given.
 - On `/ship`: `git rev-parse`, `git log`, `git rev-list --count` and `git diff --shortstat`
   between the base branch and `HEAD`, in the session's folder (a worktree ships its own branch).
+- On `/weekly`: `git log --oneline --no-merges --since=<days> days ago` in the session's folder.
 - On the Worktrees tab, while it is open (when it opens, every minute, and on Refresh):
   `git worktree list --porcelain` once, then in each worktree `git status --porcelain=v2
   --branch` and `git log` for its last commits, each with a 5-second timeout. All read-only.

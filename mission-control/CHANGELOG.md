@@ -1,5 +1,15 @@
 # Changelog
 
+## mission-control 0.13.0 — the week for the client, the time per issue
+
+- `/weekly [days]`: a client update for the last 7 days (or the days given), in Arabic and
+  English, from the issues closed and in progress or waiting on the client, the commits and
+  the day logs; the session's model drafts it, with a plain fallback, in a card with an Arabic /
+  English switch to copy from. Nothing is sent (#17).
+- Board: a picked ticket's row shows the time its run-log runs took so far, with runs per
+  implementer (#19).
+- Tests: session and pane tests get 30 s, so a busy machine no longer fails them (#16).
+
 ## mission-control 0.12.0 — know your team, your branches and what changed
 
 - What's new: Info shows the mod's own version, what changed in it and the earlier releases;
