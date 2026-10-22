@@ -1,5 +1,20 @@
 # Changelog
 
+## mission-control 0.12.0 — know your team, your branches and what changed
+
+- What's new: Info shows the mod's own version, what changed in it and the earlier releases;
+  after an update, one toast names the new version. The changelog now ships inside the mod (#14).
+- Worktrees tab: every worktree of the repo with its branch, the issue it names, last commit,
+  uncommitted changes and push state; buttons to review and land, remove or open one (#7).
+- Board: a scorecard per implementer from the last 7 days of Mission Control's run-log, beside
+  the `.ops/runs` stats (#5); latest decisions also from a `D-###` table and
+  `docs/DECISIONS.md` (#10); the repo's own `.claude/board-cache.json` as a GitHub source when
+  there is no Mission Control (#11).
+- Delegations: a relay starting for an implementer that hit a rate limit in the last hour gets
+  a toast and a note naming a free one, and the Board's Start row warns too (#6).
+- `scripts/board-cache.mjs` (in the Mission Mods repo): writes a repo's issues and board
+  Status to `.claude/board-cache.json` through `gh`, for the Board to read (#12).
+
 ## mission-control 0.11.0 — act from the board
 
 - Board: pick a ticket that is not done; **Start** fills the composer with a delegation

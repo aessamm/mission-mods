@@ -23,11 +23,13 @@ Everything runs locally.
   hit a rate limit in the last hour (from run-log or this session's results), a toast and a
   note on its card name a free one; the run still goes ahead.
 - **Board**: the repository's GitHub issues in their project-board columns (doing, review,
-  waiting on owner, blocked, to do) when a Mission Control folder has them cached, else the
-  tickets in its `.ops/` folder with what each one is blocked by; plus the activity log, a
-  scorecard per implementer (the last 7 days of run-log: runs, success share, failures,
-  reworks, average time, rate limits, beside the `.ops/runs` stats) and the latest
-  decisions. Pick a ticket and **Start** fills the composer with its delegation request
+  waiting on owner, blocked, to do) when a Mission Control folder has them cached or the
+  repository has its own `.claude/board-cache.json`, else the tickets in its `.ops/` folder
+  with what each one is blocked by; plus the activity log, a scorecard per implementer (the
+  last 7 days of run-log: runs, success share, failures, reworks, average time, rate limits,
+  beside the `.ops/runs` stats) and the latest decisions, as `## D-###` headings or a
+  `| D-### | date | decision | who |` table, from `.ops/memory/DECISIONS.md` or
+  `docs/DECISIONS.md`. Pick a ticket and **Start** fills the composer with its delegation request
   (Codex, or another Claude when Settings' Builder row names a Claude model), with a warning
   when that implementer is rate-limited; **Open** goes to the GitHub issue.
 - **Worktrees**: every worktree of the repository from `git worktree list`: folder, branch,
@@ -141,6 +143,11 @@ anywhere.
   to this repository (its GitHub repo is the `origin` remote, or, with no remote, its
   `appDir` is this repository). Mission Control fetches it; this mod never calls GitHub.
   Turn it off in **Settings › Panel › Board reads**.
+- With no Mission Control cache for the repository: its own `.claude/board-cache.json`, in the
+  same shape, used when its GitHub repo is the `origin` remote (or the repository has none).
+  You (or Claude) write it with `node scripts/board-cache.mjs` from the Mission Mods
+  repository, which asks `gh` as you; the mod only reads the file.
+- `docs/DECISIONS.md` when there is no `.ops/memory/DECISIONS.md`, for Latest decisions.
 - The delegate relays' `result.json` files in your temp folder (`delegate-relay` folders),
   and the brief files given to them.
 - Claude Code's plugin records in `~/.claude` (`settings.json`,

@@ -18,10 +18,12 @@ Your agent team at a glance, in a side panel and a status line above the prompt.
   `board-sync.mjs`; both only fill the composer. A relay that starts for an implementer that
   hit a rate limit in the last hour gets a warning naming a free one.
 - **Board** — the repo's GitHub issues in their board columns when Mission Control has them
-  cached, else tickets from the repo's `.ops/` folder: doing, review, waiting on owner,
-  blocked, to do, a scorecard per implementer (runs, success, time, rate limits over the last
-  7 days of run-log, plus `.ops/runs`) and the latest decisions. Pick a ticket and **Start**
-  fills the composer with its delegation request; **Open** goes to the issue.
+  cached, or when the repo has its own `.claude/board-cache.json` (written by
+  `scripts/board-cache.mjs`), else tickets from the repo's `.ops/` folder: doing, review,
+  waiting on owner, blocked, to do, a scorecard per implementer (runs, success, time, rate
+  limits over the last 7 days of run-log, plus `.ops/runs`) and the latest decisions (`D-###`
+  headings or a decisions table, from `.ops/memory/` or `docs/DECISIONS.md`). Pick a ticket
+  and **Start** fills the composer with its delegation request; **Open** goes to the issue.
 - **Worktrees** — every worktree of the repo: branch, the issue it names, last commit,
   uncommitted changes and whether it is pushed, with buttons to review and land, remove or
   open one in a session (read-only git; the buttons fill the composer).
