@@ -2,7 +2,9 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { TestBody } from 'claude-code/testing'
 
 import { activityLine, filterTickets, githubCacheOf, mcDirOfRunLog, parseActivity, parseFrontmatter, parseTicket, remoteIs, sectionsOf, staleNote, sourceTag } from '../hooks/features/board'
+import { implementerOf, issueNumberOf, startBrief } from '../hooks/kit/brief'
 import { resolveIn, samePath } from '../hooks/kit/paths'
+import { DEFAULT_SETTINGS } from '../hooks/kit/state'
 
 const PANE = {
   component: 'Pane' as const,
@@ -150,7 +152,14 @@ test('a cache counts only for its own repo; MC_RUN_LOG names Mission Control’s
 
 // The test host resolves paths against its own drive, so mocks match on the tail only.
 const tail = (p: string) => p.replace(/\\/g, '/')
-async function boardWith($: Parameters<TestBody>[0], on: Parameters<TestBody>[1],remote: string | null, extra: Record<string, string> = {}) {
+async function boardWith($: Parameters<TestBody>[0], on: Parameters<TestBody>[1], remote: string | null, extra: Record<string, string> = {}) {
+  const ui = await (await startBoard($, on, remote, extra))('desktop')
+  const drawn = JSON.stringify(await ui.drawn())
+  await ui.unmount()
+  return drawn
+}
+// Registers the mocks, starts the session, and answers a function that mounts the Board tab.
+async function startBoard($: Parameters<TestBody>[0], on: Parameters<TestBody>[1], remote: string | null, extra: Record<string, string> = {}) {
   mock.clock(on)
   on('session.start', () => ({ cwd: '/w/app' }))
   on('command.register', (_$, e) => ({ value: { command: e.name } }))
@@ -165,11 +174,11 @@ async function boardWith($: Parameters<TestBody>[0], on: Parameters<TestBody>[1]
     return hit ? { value: files[hit]! } : { deny: 'ENOENT' }
   })
   await $.session.start({ ...START, cwd: '/w/app' })
-  const ui = await $.ui.mount({ plugin: 'mission-control', surface: 'desktop', ...PANE })
-  await ui.press({ key: 'tab-board' })
-  const drawn = JSON.stringify(await ui.drawn())
-  await ui.unmount()
-  return drawn
+  return async (surface: 'terminal' | 'desktop') => {
+    const ui = await $.ui.mount({ plugin: 'mission-control', surface, ...PANE })
+    await ui.press({ key: 'tab-board' })
+    return ui
+  }
 }
 
 test('the board draws GitHub issues when the cache beside the repo is this repo’s', async ($, on) => {
@@ -189,4 +198,70 @@ test('another repo’s cache is ignored and the board falls back to .ops/tickets
 test('with no remote, the cache counts when mc.config.json points its appDir at the repo', async ($, on) => {
   const drawn = await boardWith($, on, null, { '/w/mission-control/mc.config.json': '{"appDir":"../app"}' })
   expect(drawn.includes('Daily production database backup')).toBe(true)
+})
+
+const ROUTED = { ...DEFAULT_SETTINGS.routing, byRole: { builder: { model: 'claude-sonnet-5-5', effort: 'high' } } }
+
+test('the Start brief names the ticket, its labels and URL, the implementer and the run-log wrap', () => {
+  const [gh, , , todo] = githubCacheOf(JSON.parse(CACHE))!.tickets
+  expect(implementerOf(DEFAULT_SETTINGS.routing)).toEqual({ agent: 'codex', name: 'Codex', skill: 'codex-delegate' })
+  expect(implementerOf({ ...DEFAULT_SETTINGS.routing, byRole: { builder: { model: 'default', effort: 'low' } } })).toMatchObject({ agent: 'codex', effort: 'low' })
+  expect(implementerOf(ROUTED)).toEqual({ agent: 'claude', name: 'Claude', skill: 'claude-delegate', model: 'claude-sonnet-5-5', effort: 'high' })
+  expect(issueNumberOf(gh!)).toBe(35)
+
+  const b = startBrief(gh!, DEFAULT_SETTINGS.routing)
+  expect(b.split('\n')[0]).toBe('Delegate GitHub issue #35 "Daily production database backup" to Codex with /codex-delegate.')
+  expect(b).toContain('Issue: https://github.com/aessamm/mos/issues/35')
+  expect(b).toContain('Labels: ops, p1')
+  expect(b).toContain('If MC_RUN_LOG is set')
+  expect(b).toContain('node "$MC_RUN_LOG" start --agent codex --issue 35`')
+  expect(b).toContain('node "$MC_RUN_LOG" end --agent codex --issue 35 --result auto')
+
+  const r = startBrief(gh!, ROUTED)
+  expect(r.split('\n')[0]).toBe('Delegate GitHub issue #35 "Daily production database backup" to Claude with /claude-delegate (model claude-sonnet-5-5, effort high).')
+  expect(r).toContain('start --agent claude --issue 35 --model claude-sonnet-5-5 --effort high')
+  expect(startBrief(todo!, DEFAULT_SETTINGS.routing)).not.toContain('Labels:')
+
+  const ops = startBrief(parseTicket(ticketSrc('M0-007', 'Delegations tab', 'todo'), '.ops/tickets/M0/M0-007.md')!, DEFAULT_SETTINGS.routing)
+  expect(ops).toContain('Delegate ticket M0-007 "Delegations tab" to Codex')
+  expect(ops).toContain('Read .ops/tickets/M0/M0-007.md for the full brief')
+  expect(ops).not.toContain('MC_RUN_LOG')
+  expect(ops).not.toContain('Issue:')
+})
+
+test('picking a GitHub issue shows Start and Open on both surfaces; Start fills the composer', async ($, on) => {
+  const filled: string[] = []
+  on('prompt.fill', (_$, e) => { filled.push(e.text); return { isFilled: true } })
+  on('store.get', (_$, e) => ({ value: e.key === 'settings' ? { ...DEFAULT_SETTINGS, routing: ROUTED } : undefined }))
+  on('store.set', () => ({ value: undefined as never }))
+  const mount = await startBoard($, on, 'https://github.com/aessamm/mos.git')
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await mount(surface)
+    let drawn = JSON.stringify(await ui.drawn())
+    expect(drawn.includes('"pick-#35"')).toBe(true)
+    expect(drawn.includes('"pick-#20"')).toBe(false) // done: no actions
+    expect(drawn.includes('"start-#35"')).toBe(false)
+    await ui.press({ key: 'pick-#35' })
+    drawn = JSON.stringify(await ui.drawn())
+    expect(drawn.includes('"start-#35"')).toBe(true)
+    expect(drawn.includes('https://github.com/aessamm/mos/issues/35')).toBe(true)
+    await ui.press({ key: 'start-#35' })
+    expect(filled.at(-1)!.split('\n')[0]).toContain('to Claude with /claude-delegate (model claude-sonnet-5-5, effort high)')
+    await ui.press({ key: 'pick-#35' })
+    expect(JSON.stringify(await ui.drawn()).includes('"start-#35"')).toBe(false)
+    await ui.unmount()
+  }
+})
+
+test('an .ops ticket gets Start but no Open', async ($, on) => {
+  const filled: string[] = []
+  on('prompt.fill', (_$, e) => { filled.push(e.text); return { isFilled: true } })
+  const ui = await (await startBoard($, on, null, { '/w/app/.ops/tickets/M0-001.md': ticketSrc('M0-001', 'Ops ticket', 'todo') }))('desktop')
+  await ui.press({ key: 'pick-M0-001' })
+  const drawn = JSON.stringify(await ui.drawn())
+  expect(drawn.includes('"start-M0-001"')).toBe(true)
+  expect(drawn.includes('"open-M0-001"')).toBe(false)
+  await ui.press({ key: 'start-M0-001' })
+  expect(filled.at(-1)).toContain('Delegate ticket M0-001 "Ops ticket" to Codex with /codex-delegate.')
+  await ui.unmount()
 })

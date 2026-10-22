@@ -11,6 +11,7 @@ import { parentOf, resolveIn, samePath } from '../kit/paths'
 import { emptyState } from '../kit/ui'
 import { activeTab, badgesFrom, clip, tabBar } from '../kit/chrome'
 import { barText, box, hline, iconInk, progress, svg, text, textWidth, wide } from '../kit/draw'
+import { startBrief } from '../kit/brief'
 import { DEFAULT_PANEL, DEFAULT_SETTINGS, makeCtx, settingsOf } from '../kit/state'
 import type { PaneInput } from '../kit/state'
 import type { TabCtx } from '../kit/state'
@@ -377,10 +378,16 @@ export function registerBoard(on: On): void {
     const badges = badgesFrom(await read($, agents), await read($, delegations), snap)
     const go = (f: BoardFilter) => void update($, panel, q => ({ ...q, boardFilter: f }))
     const toggleDone = () => void update($, panel, q => ({ ...q, isDoneCollapsed: !q.isDoneCollapsed }))
+    const acts: TicketActs = {
+      pick: p.boardPick,
+      choose: id => void update($, panel, q => ({ ...q, boardPick: q.boardPick === id ? undefined : id })),
+      start: t => void $.prompt.fill({ text: startBrief(t, s.routing), mode: 'replace' }),
+      open: url => void $.prompt.fill({ text: url, mode: 'replace' }),
+    }
     return (
       <Box flexDirection="column" gap={1}>
         {tabBar(ui, 'board', badges, s, t => void update($, panel, q => ({ ...q, tab: t })), c.isDesktop ? c.W : 0, c.at)}
-        {snap ? boardBody(c, snap, p.boardFilter, p.isDoneCollapsed, s.look.theme, s.look.motion, go, toggleDone) : emptyBody(c, s, () => void $.prompt.fill({ text: '/ai-team-project-kickoff', mode: 'replace' }))}
+        {snap ? boardBody(c, snap, p.boardFilter, p.isDoneCollapsed, s.look.theme, s.look.motion, go, toggleDone, acts) : emptyBody(c, s, () => void $.prompt.fill({ text: '/ai-team-project-kickoff', mode: 'replace' }))}
       </Box>
     )
   }).catch(($, e, next) => paneFailed($, e, next.error, 'board'))
@@ -500,7 +507,32 @@ function statsSvg(W: number, list: AgentRunStats[], theme: Theme, motion: Motion
   return wide(W, statsH(list.length), `${text(0, 14, 'Agents on this board', { size: 12, weight: 600 })}${text(W, 14, '.ops/runs', { size: 11, cls: 'm', anchor: 'end' })}${rows}`, theme, motion)
 }
 
-function boardBody(c: TabCtx, snap: BoardSnapshot, filter: BoardFilter, isDoneCollapsed: boolean, theme: Theme, motion: Motion, go: (f: BoardFilter) => void, toggleDone: () => void) {
+// The Start / Open actions on a ticket that is not done: a row of small id buttons under each
+// section picks one, and the picked ticket gets its actions beneath. Both surfaces draw it.
+export type TicketActs = { pick: string | undefined; choose: (id: string) => void; start: (t: Ticket) => void; open: (url: string) => void }
+function ticketPicker(c: TabCtx, name: string, list: Ticket[], acts: TicketActs) {
+  const { Box, Text, Button } = c.ui
+  const Link = 'Link' in c.ui ? c.ui.Link : undefined
+  const picked = list.find(t => t.id === acts.pick)
+  return (
+    <Box key={`pick-${name}`} flexDirection="column">
+      <Box flexDirection="row" gap={1} flexWrap="wrap">
+        {list.map(t => (
+          <Button key={`pick-${t.id}`} label={t.id} plain={t.id !== acts.pick ? true : undefined} variant={t.id === acts.pick ? 'primary' : undefined} onPress={() => acts.choose(t.id)} />
+        ))}
+      </Box>
+      {picked && (
+        <Box flexDirection="row" gap={1} flexWrap="wrap">
+          <Text dimColor>{`${picked.id} ${clip(picked.title, 40)}`}</Text>
+          <Button key={`start-${picked.id}`} label="Start" variant="primary" onPress={() => acts.start(picked)} />
+          {picked.url && (Link ? <Link key={`open-${picked.id}`} href={picked.url} label="Open" /> : <Button key={`open-${picked.id}`} label="Open" onPress={() => acts.open(picked.url!)} />)}
+        </Box>
+      )}
+    </Box>
+  )
+}
+
+function boardBody(c: TabCtx, snap: BoardSnapshot, filter: BoardFilter, isDoneCollapsed: boolean, theme: Theme, motion: Motion, go: (f: BoardFilter) => void, toggleDone: () => void, acts: TicketActs) {
   const { Box, Text, Button } = c.ui
   const Svg = 'Svg' in c.ui ? c.ui.Svg : undefined
   const blockedN = snap.tickets.filter(t => t.status === 'blocked').length
@@ -526,9 +558,10 @@ function boardBody(c: TabCtx, snap: BoardSnapshot, filter: BoardFilter, isDoneCo
       <Box key="board" flexDirection="column" gap={1}>
         <Svg source={headSvg(W, snap, staleNote(snap, c.at), theme, motion)} alt={`${snap.project}, ${sourceTag(snap)}, ${done} of ${total} done`} height={headH(snap)} />
         {filters}
-        {shown.map(([name, list, tone]) => (
-          <Svg key={name} source={sectionSvg(W, `${name} · ${list.length}`, list, tone, byId, theme, motion)} alt={`${name}: ${list.map(t => `${t.id} ${t.title}${blockedBy(t, byId).length ? `, blocked by ${blockedBy(t, byId).join(' and ')}` : ''}`).join(', ')}`} height={sectionH(list)} />
-        ))}
+        {shown.flatMap(([name, list, tone]) => [
+          <Svg key={name} source={sectionSvg(W, `${name} · ${list.length}`, list, tone, byId, theme, motion)} alt={`${name}: ${list.map(t => `${t.id} ${t.title}${blockedBy(t, byId).length ? `, blocked by ${blockedBy(t, byId).join(' and ')}` : ''}`).join(', ')}`} height={sectionH(list)} />,
+          ticketPicker(c, name, list, acts),
+        ])}
         {shown.length === 0 && <Text dimColor>Nothing here with this filter.</Text>}
         {doneBtn}
         {!isDoneCollapsed && sec.done.length > 0 && (
@@ -561,6 +594,7 @@ function boardBody(c: TabCtx, snap: BoardSnapshot, filter: BoardFilter, isDoneCo
         <Box key={name} flexDirection="column" marginTop={1}>
           <Text bold color={tone === 'blocked' ? 'red' : undefined}>{`${name} · ${list.length}`}</Text>
           {list.map(row)}
+          {ticketPicker(c, name, list, acts)}
         </Box>
       ))}
       {shown.length === 0 && <Text dimColor>Nothing here with this filter.</Text>}

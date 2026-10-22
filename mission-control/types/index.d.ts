@@ -180,6 +180,7 @@ export type PanelState = {
   expanded: Record<string, boolean>
   focusId?: string
   boardFilter: 'all' | 'mine' | 'agents' | 'blocked'
+  boardPick?: string         // the Board ticket whose Start / Open actions show
 }
 
 declare module 'claude-code' {
