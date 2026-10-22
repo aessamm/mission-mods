@@ -15,11 +15,13 @@ Your agent team at a glance, in a side panel and a status line above the prompt.
   GitHub issue each one is for. Runs other sessions logged through Mission Control's
   `run-log.mjs` today show up too. When a finished run's GitHub card is behind, a button
   offers to move it to Review or Done, and **Sync board** offers Mission Control's
-  `board-sync.mjs`; both only fill the composer.
+  `board-sync.mjs`; both only fill the composer. A relay that starts for an implementer that
+  hit a rate limit in the last hour gets a warning naming a free one.
 - **Board** — the repo's GitHub issues in their board columns when Mission Control has them
   cached, else tickets from the repo's `.ops/` folder: doing, review, waiting on owner,
-  blocked, to do, the agents' run stats and the latest decisions. Pick a ticket and
-  **Start** fills the composer with its delegation request; **Open** goes to the issue.
+  blocked, to do, a scorecard per implementer (runs, success, time, rate limits over the last
+  7 days of run-log, plus `.ops/runs`) and the latest decisions. Pick a ticket and **Start**
+  fills the composer with its delegation request; **Open** goes to the issue.
 - **Log** — the day across projects, with `/standup`, `/handoff` and `/ship`.
 - **Budget** — pauses new agents at a share of your plan's 5-hour or weekly window, or at a
   daily dollar limit.

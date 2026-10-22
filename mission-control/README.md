@@ -19,13 +19,17 @@ Everything runs locally.
   GitHub issue each one is for. Runs other sessions logged through Mission Control's
   `run-log.mjs` today show up too. When a finished run's GitHub card is behind, a button
   offers to move it to Review or Done, and **Sync board** offers Mission Control's
-  `board-sync.mjs`; both only fill the composer.
+  `board-sync.mjs`; both only fill the composer. When a relay starts for an implementer that
+  hit a rate limit in the last hour (from run-log or this session's results), a toast and a
+  note on its card name a free one; the run still goes ahead.
 - **Board**: the repository's GitHub issues in their project-board columns (doing, review,
   waiting on owner, blocked, to do) when a Mission Control folder has them cached, else the
-  tickets in its `.ops/` folder with what each one is blocked by; plus the activity log, the
-  agents' run stats and the latest decisions. Pick a ticket and **Start** fills the composer
-  with its delegation request (Codex, or another Claude when Settings' Builder row names a
-  Claude model); **Open** goes to the GitHub issue.
+  tickets in its `.ops/` folder with what each one is blocked by; plus the activity log, a
+  scorecard per implementer (the last 7 days of run-log: runs, success share, failures,
+  reworks, average time, rate limits, beside the `.ops/runs` stats) and the latest
+  decisions. Pick a ticket and **Start** fills the composer with its delegation request
+  (Codex, or another Claude when Settings' Builder row names a Claude model), with a warning
+  when that implementer is rate-limited; **Open** goes to the GitHub issue.
 - **Log**: the day across projects, with `/standup`, `/handoff` and `/ship`.
 - **Budget**: pauses new sub-agents at a share of your plan's 5-hour or weekly window, or at
   a daily dollar limit.
