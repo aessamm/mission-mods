@@ -179,7 +179,7 @@ function renderReleases(c: TabCtx, s: Settings, news: WhatsNew | null, expanded:
   return [
     section(c, s.look, 'whats-new', `What's new${now ? ` in ${now.version}` : ''}`, now?.title || undefined),
     now?.bullets.length
-      ? <Markdown key="whats-new-md">{bullets(now)}</Markdown>
+      ? <Markdown key="whats-new-md" text={bullets(now)} />
       : <Text key="whats-new-none" dimColor>No changelog came with this version.</Text>,
     ...(earlier.length ? [
       section(c, s.look, 'changelog', 'Changelog', 'Earlier releases'),
@@ -190,7 +190,7 @@ function renderReleases(c: TabCtx, s: Settings, news: WhatsNew | null, expanded:
           return (
             <Box key={key} flexDirection="column">
               <Button key={key} label={`${isOpen ? '▾' : '▸'} ${r.version}${r.title ? ` · ${r.title}` : ''}`} plain onPress={() => toggle(key)} />
-              {isOpen && r.bullets.length > 0 && <Markdown key={`${key}-md`}>{bullets(r)}</Markdown>}
+              {isOpen && r.bullets.length > 0 && <Markdown key={`${key}-md`} text={bullets(r)} />}
             </Box>
           )
         })}
