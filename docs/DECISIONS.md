@@ -32,3 +32,6 @@ each one is in the next wake-up report.
 | D-025 | 2026-10-22 | With #16 (30 s for session and pane tests) the full suite passes under load (74/74 in one run while a session works), so landings go back to the plain full-suite gate. | Sup, owner asleep |
 | D-026 | 2026-10-22 | Idea 8 (cost per issue) starts as time per issue from run-log durations (#19); Claude token cost per issue needs data the mod does not join yet. Directory resubmission of 0.12.0 is an owner-action (#18). | Sup, owner asleep |
 | D-027 | 2026-10-22 | 0.13.0 released with /weekly (#17) and time per issue (#19) after the full suite passed 80/80 in one run; main pushed and the install updated. | Sup, owner asleep |
+| D-028 | 2026-10-22 | Ship a generic public board-supervisor skill in the mod (#20, #21). Its default language when a project names none is the language the user writes in. | Owner (yes on #13); language default: Sup |
+| D-029 | 2026-10-22 | No directory resubmission until the first submitted version (0.9.2) is approved (#18 parked, blocked). | Owner |
+| D-030 | 2026-10-22 | The four wave-1/2 sessions are archived; new work gets fresh sessions. | Owner |
