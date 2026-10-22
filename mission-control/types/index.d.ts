@@ -103,6 +103,8 @@ export type BoardSource = { kind: 'github'; repo: string; board?: string; url?: 
 export type DecisionNote = { id: string; title: string; date?: string }
 // What .ops/runs/<ticket>/*.json says about one agent.
 export type AgentRunStats = { agent: string; runs: number; approved: number; rejected: number; reworks: number; avgSec?: number; rateLimited: number }
+// Mission Control's run-log runs of one implementer over the last 7 days.
+export type RunLogStats = { agent: string; runs: number; ok: number; failed: number; reworks: number; avgSec?: number; rateLimited: number }
 // A line of .ops/log/activity.jsonl. `detail` is the line's own words (a string detail, or a
 // summary of an object one). Claude Code hook lines (session.started / session.ended /
 // subagent.stopped) that come one after another are folded into one event with `hooks` counts.
@@ -118,6 +120,7 @@ export type BoardSnapshot = {
   activity: ActivityEvent[]  // newest first, at most 30
   decisions?: DecisionNote[] // newest first, at most 3
   agentStats?: AgentRunStats[]
+  runLogStats?: RunLogStats[] // run-log runs of the last 7 days, per implementer
   readAt: number
 }
 

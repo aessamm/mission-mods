@@ -159,8 +159,8 @@ async function boardWith($: Parameters<TestBody>[0], on: Parameters<TestBody>[1]
   return drawn
 }
 // Registers the mocks, starts the session, and answers a function that mounts the Board tab.
-async function startBoard($: Parameters<TestBody>[0], on: Parameters<TestBody>[1], remote: string | null, extra: Record<string, string> = {}) {
-  mock.clock(on)
+async function startBoard($: Parameters<TestBody>[0], on: Parameters<TestBody>[1], remote: string | null, extra: Record<string, string | ((now: number) => string)> = {}) {
+  const clock = mock.clock(on)
   on('session.start', () => ({ cwd: '/w/app' }))
   on('command.register', (_$, e) => ({ value: { command: e.name } }))
   on('tool.register', () => ({ value: undefined as never }))
@@ -168,10 +168,11 @@ async function startBoard($: Parameters<TestBody>[0], on: Parameters<TestBody>[1
   on('session.repo', () => ({ value: { root: '/w/app', name: 'app', remote, internal: false } }))
   on('fs.exists', (_$, e) => ({ value: tail(e.path).endsWith('/w/app/.ops/tickets') }))
   on('fs.list', (_$, e) => ({ value: tail(e.path).endsWith('/w/app/.ops/tickets') ? [file('M0-001.md')] : [] }))
-  const files: Record<string, string> = { '/w/mission-control/.cache/github-tasks.json': CACHE, '/w/app/.ops/tickets/M0-001.md': ticketSrc('M0-001', 'Old ops ticket', 'done'), ...extra }
+  const files: Record<string, string | ((now: number) => string)> = { '/w/mission-control/.cache/github-tasks.json': CACHE, '/w/app/.ops/tickets/M0-001.md': ticketSrc('M0-001', 'Old ops ticket', 'done'), ...extra }
   on('fs.read', (_$, e) => {
     const hit = Object.keys(files).find(k => tail(e.path).endsWith(k))
-    return hit ? { value: files[hit]! } : { deny: 'ENOENT' }
+    const f = hit ? files[hit]! : undefined
+    return f === undefined ? { deny: 'ENOENT' } : { value: typeof f === 'function' ? f(clock.now()) : f }
   })
   await $.session.start({ ...START, cwd: '/w/app' })
   return async (surface: 'terminal' | 'desktop') => {
@@ -264,4 +265,24 @@ test('an .ops ticket gets Start but no Open', async ($, on) => {
   await ui.press({ key: 'start-M0-001' })
   expect(filled.at(-1)).toContain('Delegate ticket M0-001 "Ops ticket" to Codex with /codex-delegate.')
   await ui.unmount()
+})
+
+test('the agents block merges run-log runs of the last 7 days with .ops/runs, on both surfaces', async ($, on) => {
+  const day = 86_400_000
+  const line = (ts: number, agent: string, extra: Record<string, unknown> = {}) =>
+    JSON.stringify({ ts: new Date(ts).toISOString(), actor: agent, event: 'run.completed', source: 'run-log', issue: 35, detail: { agent, durationSec: 600, ...extra } })
+  const log = (now: number) => [
+    line(now - day, 'codex'), line(now - 2 * day, 'codex', { exitCode: 1 }), line(now - 10 * day, 'codex'),
+    line(now - day, 'agy', { rateLimited: true }),
+  ].join('\n')
+  const mount = await startBoard($, on, 'https://github.com/aessamm/mos.git', { '/w/app/.ops/log/activity.jsonl': log })
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await mount(surface)
+    const drawn = JSON.stringify(await ui.drawn())
+    expect(drawn.includes('Agents on this board')).toBe(true)
+    expect(drawn.includes('run-log 7d')).toBe(true)
+    expect(drawn.includes('2 runs · 50% ok · 1 failed · avg 10m')).toBe(true)
+    expect(drawn.includes('1 run · 100% ok · avg 10m · 1 rate-limited')).toBe(true)
+    await ui.unmount()
+  }
 })

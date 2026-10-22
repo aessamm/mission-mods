@@ -5,13 +5,14 @@ import { atom, read, update } from 'claude-code'
 import { failedView } from '../kit/ui'
 import type { EngineInterface, On, RenderElement } from 'claude-code'
 
-import type { ActivityEvent, AgentRecord, AgentRunStats, BoardSnapshot, BoardSource, DecisionNote, Delegation, Settings, Ticket, TicketStatus } from '../../types'
+import type { ActivityEvent, AgentRecord, AgentRunStats, BoardSnapshot, BoardSource, DecisionNote, Delegation, RunLogStats, Settings, Ticket, TicketStatus } from '../../types'
 import { fmtSpan } from '../kit/role'
 import { mcDirsOf, resolveIn, samePath } from '../kit/paths'
 import { emptyState } from '../kit/ui'
 import { activeTab, badgesFrom, clip, tabBar } from '../kit/chrome'
 import { barText, box, hline, iconInk, progress, svg, text, textWidth, wide } from '../kit/draw'
 import { startBrief } from '../kit/brief'
+import { runLogStats } from '../kit/runstats'
 import { DEFAULT_PANEL, DEFAULT_SETTINGS, makeCtx, settingsOf } from '../kit/state'
 import type { PaneInput } from '../kit/state'
 import type { TabCtx } from '../kit/state'
@@ -345,9 +346,10 @@ async function loadBoard($: EngineInterface): Promise<void> {
       try { runs.push(JSON.parse(String(await $.fs.read(`${root}/.ops/runs/${d.name}/${f.name}`))) as Record<string, unknown>) } catch { /* unreadable run */ }
     }
   }
-  const snap: BoardSnapshot = { root, project: baseName(root), tickets, source, activity: parseActivity(last, 30), decisions, agentStats: statsOf(runs), readAt: await $.clock.now() }
+  const now = await $.clock.now()
+  const snap: BoardSnapshot = { root, project: baseName(root), tickets, source, activity: parseActivity(last, 30), decisions, agentStats: statsOf(runs), runLogStats: runLogStats(raw, now), readAt: now }
   const was = await read($, board)
-  const key = (b: BoardSnapshot) => JSON.stringify([b.root, b.tickets, b.source ?? null, b.activity, b.decisions ?? [], b.agentStats ?? []])
+  const key = (b: BoardSnapshot) => JSON.stringify([b.root, b.tickets, b.source ?? null, b.activity, b.decisions ?? [], b.agentStats ?? [], b.runLogStats ?? []])
   const same = !!was && key(was) === key(snap)
   if (!same) await update($, board, () => snap)
 }
@@ -486,18 +488,43 @@ function decisionsSvg(W: number, list: DecisionNote[], theme: Theme, motion: Mot
   return wide(W, decisionsH(list.length), `${text(0, 14, 'Latest decisions', { size: 12, weight: 600 })}${text(W, 14, '.ops/memory/DECISIONS.md', { size: 11, cls: 'm', anchor: 'end' })}${rows}`, theme, motion)
 }
 
-const statsH = (n: number) => 24 + n * 26
 const statLine = (s: AgentRunStats) => {
   const judged = s.approved + s.rejected
   return [`${s.runs} run${s.runs === 1 ? '' : 's'}`, judged ? `${Math.round((s.approved / judged) * 100)}% approved` : '', s.reworks ? `${s.reworks} rework${s.reworks === 1 ? '' : 's'}` : '', s.avgSec ? `avg ${fmtSpan(s.avgSec * 1000)}` : '', s.rateLimited ? `${s.rateLimited} rate-limited` : ''].filter(Boolean).join(' · ')
 }
-function statsSvg(W: number, list: AgentRunStats[], theme: Theme, motion: Motion) {
-  const rows = list.map((s, i) => {
-    const y = 26 + i * 26
-    const b = badgeSvg(8 + textWidth(holderName(s.agent), 10.5) + 12, y + 2, s.agent)
-    return `${b.svg}${text(b.w + 18, y + 14, statLine(s), { size: 12, cls: 's', max: W - b.w - 18 })}`
+export const logStatLine = (s: RunLogStats) =>
+  [`${s.runs} run${s.runs === 1 ? '' : 's'}`, `${Math.round((s.ok / s.runs) * 100)}% ok`, s.failed ? `${s.failed} failed` : '', s.reworks ? `${s.reworks} rework${s.reworks === 1 ? '' : 's'}` : '', s.avgSec ? `avg ${fmtSpan(s.avgSec * 1000)}` : '', s.rateLimited ? `${s.rateLimited} rate-limited` : ''].filter(Boolean).join(' · ')
+
+// One row per agent, with a line per source that knows it: the kickoff's .ops/runs records
+// and Mission Control's run-log over the last 7 days.
+export type ScoreRow = { agent: string; lines: { src: string; text: string }[] }
+export const LOG_SRC = 'run-log 7d', OPS_SRC = '.ops/runs'
+export function scoreRows(ops: AgentRunStats[], log: RunLogStats[]): ScoreRow[] {
+  const agents = [...new Set([...log.map(s => s.agent), ...ops.map(s => s.agent)])]
+  return agents.map(agent => {
+    const o = ops.find(s => s.agent === agent), l = log.find(s => s.agent === agent)
+    return { agent, lines: [...(l ? [{ src: LOG_SRC, text: logStatLine(l) }] : []), ...(o ? [{ src: OPS_SRC, text: statLine(o) }] : [])] }
+  })
+}
+const STAT_LINE = 20
+const statsH = (rows: ScoreRow[]) => 30 + rows.reduce((n, r) => n + r.lines.length * STAT_LINE + 6, 0)
+function statsSvg(W: number, rows: ScoreRow[], theme: Theme, motion: Motion) {
+  const srcs = [...new Set(rows.flatMap(r => r.lines.map(l => l.src)))]
+  const isMixed = srcs.length > 1
+  let y = 26
+  const body = rows.map(r => {
+    const b = badgeSvg(8 + textWidth(holderName(r.agent), 10.5) + 12, y + 2, r.agent)
+    const out = b.svg + r.lines.map((l, i) => {
+      const ly = y + 14 + i * STAT_LINE
+      const at = b.w + 18
+      return isMixed
+        ? `${text(at, ly, l.src, { size: 11, cls: 'm', mono: true })}${text(at + 84, ly, l.text, { size: 12, cls: 's', max: W - at - 84 })}`
+        : text(at, ly, l.text, { size: 12, cls: 's', max: W - at })
+    }).join('')
+    y += r.lines.length * STAT_LINE + 6
+    return out
   }).join('')
-  return wide(W, statsH(list.length), `${text(0, 14, 'Agents on this board', { size: 12, weight: 600 })}${text(W, 14, '.ops/runs', { size: 11, cls: 'm', anchor: 'end' })}${rows}`, theme, motion)
+  return wide(W, statsH(rows), `${text(0, 14, 'Agents on this board', { size: 12, weight: 600 })}${text(W, 14, srcs.join(' · '), { size: 11, cls: 'm', anchor: 'end' })}${body}`, theme, motion)
 }
 
 // The Start / Open actions on a ticket that is not done: a row of small id buttons under each
@@ -533,7 +560,7 @@ function boardBody(c: TabCtx, snap: BoardSnapshot, filter: BoardFilter, isDoneCo
   const done = snap.tickets.filter(t => t.status === 'done').length
   const sec = sectionsOf(filterTickets(snap.tickets, filter))
   const byId = new Map(snap.tickets.map(t => [t.id, t] as const))
-  const decisions = snap.decisions ?? [], stats = snap.agentStats ?? []
+  const decisions = snap.decisions ?? [], stats = scoreRows(snap.agentStats ?? [], snap.runLogStats ?? [])
   const filters = (
     <Box key="filters" flexDirection="row" gap={1} flexWrap="wrap">
       {([['all', 'All'], ['mine', 'Mine'], ['agents', 'Agents'], ['blocked', `Blocked · ${blockedN}`]] as [BoardFilter, string][]).map(([id, name]) => (
@@ -560,7 +587,7 @@ function boardBody(c: TabCtx, snap: BoardSnapshot, filter: BoardFilter, isDoneCo
         {!isDoneCollapsed && sec.done.length > 0 && (
           <Svg source={sectionSvg(W, `Done · ${sec.done.length}`, sec.done, 'plain', byId, theme, motion)} alt={`Done: ${sec.done.map(t => t.id).join(', ')}`} height={sectionH(sec.done)} />
         )}
-        {stats.length > 0 && <Svg key="stats" source={statsSvg(W, stats, theme, motion)} alt={stats.map(s => `${holderName(s.agent)}: ${statLine(s)}`).join('; ')} height={statsH(stats.length)} />}
+        {stats.length > 0 && <Svg key="stats" source={statsSvg(W, stats, theme, motion)} alt={stats.map(r => `${holderName(r.agent)}: ${r.lines.map(l => `${l.src} ${l.text}`).join(', ')}`).join('; ')} height={statsH(stats)} />}
         {decisions.length > 0 && <Svg key="decisions" source={decisionsSvg(W, decisions, theme, motion)} alt={`Latest decisions: ${decisions.map(d => `${d.id} ${d.title}`).join('; ')}`} height={decisionsH(decisions.length)} />}
         <Svg source={logSvg(W, snap.activity, theme, motion)} alt="Activity log" height={24 + logRows(snap.activity) * 22} />
       </Box>
@@ -596,7 +623,7 @@ function boardBody(c: TabCtx, snap: BoardSnapshot, filter: BoardFilter, isDoneCo
       {stats.length > 0 && (
         <Box flexDirection="column" marginTop={1}>
           <Text bold>Agents on this board</Text>
-          {stats.map(s => <Text key={`st-${s.agent}`}>{`${holderName(s.agent)}  ${statLine(s)}`}</Text>)}
+          {stats.flatMap(r => r.lines.map((l, i) => <Text key={`st-${r.agent}-${i}`}>{`${i ? ' '.repeat(holderName(r.agent).length) : holderName(r.agent)}  ${l.src}  ${l.text}`}</Text>))}
         </Box>
       )}
       {decisions.length > 0 && (
