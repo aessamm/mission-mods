@@ -15,6 +15,14 @@ A Claude Code marketplace (`.claude-plugin/marketplace.json`) with one mod so fa
 1. Decisions log: `docs/DECISIONS.md`.
 2. `git status`, `git worktree list`.
 
+## Branches: `dev` for work, `main` for the directory
+
+The Claude plugin directory scans every push to `main` and checks it against the submission
+(D-032). So all work lands on `dev`: side sessions branch from `dev`, the supervisor squashes
+their branches onto `dev` and pushes `dev`. `main` moves only when the owner says the directory
+should see a version: then fast-forward `main` to `dev` (`git push origin dev:main`) after the
+gates pass. Never commit on `main` directly.
+
 Owner ↔ supervisor discussion is in Egyptian Arabic; every file in the repo is English.
 
 ## Working on the mod
@@ -41,5 +49,7 @@ Owner ↔ supervisor discussion is in Egyptian Arabic; every file in the repo is
   `## mission-control X.Y.Z — title` entry at the top of `mission-control/CHANGELOG.md` (it
   ships with the mod; Info's What's new reads it, and the root `CHANGELOG.md` only points
   there), update
-  both READMEs, push `main`, then `claude plugin marketplace update mission-mods` and
-  `claude plugin update mission-control@mission-mods`.
+  both READMEs, push `dev`. When the owner wants the directory to see it, fast-forward `main`
+  to `dev` and push `main`. Then `claude plugin marketplace update mission-mods` and
+  `claude plugin update mission-control@mission-mods` (the installed marketplace follows the
+  branch it was added with: `aessamm/mission-mods` is `main`, `aessamm/mission-mods#dev` is `dev`).
