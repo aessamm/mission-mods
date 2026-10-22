@@ -12,3 +12,8 @@ each one is in the next wake-up report.
 | D-005 | 2026-10-22 | Card moves are never done by the mod: the #3 buttons fill the composer, the person (or Claude) sends it. | Sup, owner asleep |
 | D-006 | 2026-10-22 | The parent's own start on #1 was dropped once the #1 session restarted with the same task; it was saved as a patch and in `git stash` and offered to that session, which kept its own version. | Sup, owner asleep |
 | D-007 | 2026-10-22 | Test timeouts at 5 s while several sessions run are CPU load, not code faults; a branch lands only after its suite passes on a quiet run. | Sup, owner asleep |
+| D-008 | 2026-10-22 | 0.11.0 released with #1-#3 as soon as they passed a quiet 56/56 run; wave 2 (#5-#7) goes into 0.12.0. | Sup, owner asleep |
+| D-009 | 2026-10-22 | Every change lands with its README and CHANGELOG updates, written by the supervisor at landing. | Owner |
+| D-010 | 2026-10-22 | The supervisor checks its sessions every 30 minutes when they have not reported and sends the owner a status brief each time. | Owner |
+| D-011 | 2026-10-22 | Side sessions here cannot write to the GitHub board (permission denied), so the supervisor moves their cards. | Sup, owner asleep |
+| D-012 | 2026-10-22 | board-supervisor in the mod: proposal in `docs/board-supervisor-in-mod.md`; the board pieces (#10-#12) go ahead, shipping a generic public skill (#13) waits for the owner. | Sup, owner asleep |

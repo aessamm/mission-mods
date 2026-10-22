@@ -29,6 +29,9 @@ Owner ↔ supervisor discussion is in Egyptian Arabic; every file in the repo is
 - A change to a file under `bundled-skills/<skill>/` needs that skill's `hash` in
   `bundled-skills/manifest.json` updated: sha256 over each listed file's name then its bytes,
   first 12 hex characters.
+- Every change that alters what the mod does, shows, reads or runs lands with its updates to
+  both READMEs (root `README.md` and `mission-control/README.md`) and the CHANGELOG, in the
+  same landing. Side sessions leave those files to the supervisor, who writes them when landing.
 - Release: bump `mission-control/.claude-plugin/plugin.json`, add a CHANGELOG entry, update
   both READMEs, push `main`, then `claude plugin marketplace update mission-mods` and
   `claude plugin update mission-control@mission-mods`.
