@@ -36,3 +36,4 @@ each one is in the next wake-up report.
 | D-029 | 2026-10-22 | No directory resubmission until the first submitted version (0.9.2) is approved (#18 parked, blocked). | Owner |
 | D-030 | 2026-10-22 | The four wave-1/2 sessions are archived; new work gets fresh sessions. | Owner |
 | D-031 | 2026-10-22 | 0.14.0 released with the generic board-supervisor skill (#20) and its entry points (#21) after the full suite passed 85/85; the skill's board-cache.mjs is a copy of scripts/board-cache.mjs with skill-relative usage text, so a change to one goes to both. | Sup |
+| D-032 | 2026-10-22 | The directory scans every push to main ("via push"): 0.10.0 to 0.14.0 failed its check on an `h` name in board.tsx, which set the submission to Needs changes; 0.14.1 fixes it (#22) and scripts/check-jsx-names.test.mjs is now a gate. Whether main should keep feeding the submission is the owner's call. | Sup |
