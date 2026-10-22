@@ -163,7 +163,7 @@ export type DayLog = {
   spentUsd: number
 }
 export type Handoff = { project: string; at: number; text: string }
-export type CommandDoc = { kind: 'standup' | 'ship'; at: number; title: string; sections: { heading: string; lines: string[] }[]; extra?: Record<string, string> }
+export type CommandDoc = { kind: 'standup' | 'ship' | 'weekly'; at: number; title: string; sections: { heading: string; lines: string[] }[]; extra?: Record<string, string> }
 
 // ---------------------------------------------------------------- budget, alerts, status line
 // A plan window as the engine reports it: share used (0–100) and when it resets.

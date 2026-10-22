@@ -14,6 +14,7 @@ import { registerInfo } from './features/info'
 import { registerLog } from './features/log'
 import { registerSettings } from './features/settings'
 import { registerShip } from './features/ship'
+import { registerWeekly } from './features/weekly'
 import { registerWorktrees } from './features/worktrees'
 import { registerSkills } from './features/skills'
 import { registerStatusLine } from './features/statusline'
@@ -66,5 +67,6 @@ export const register: Register = on => {
   registerInbox(on) // before the status line, so its rows wrap the status line's band
   registerStatusLine(on)
   registerShip(on)
+  registerWeekly(on)
   registerSkills(on)
 }

@@ -29,6 +29,7 @@ const COMMANDS: [string, string][] = [
   ['/mission agents', 'Jump straight to a tab: agents, delegations, board, worktrees, log, settings, help, info'],
   ['/standup', 'Today across every project: done, doing, blocked, next'],
   ['/ship', 'PR description, changelog and a client update, after checks'],
+  ['/weekly [days]', 'A client update for the week (7 days unless given), in Arabic and English, to copy'],
   ['/budget 5h <percent>', 'When new agents pause: a share of the 5-hour or weekly window (week <percent>), or a daily dollar limit'],
   ['/handoff [note]', 'Write the note the next session starts from'],
 ]
