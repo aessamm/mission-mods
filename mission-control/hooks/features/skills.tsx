@@ -1,4 +1,4 @@
-// Companion skills: the kickoff and the four delegate skills ship inside the mod, in
+// Companion skills: the kickoff, board-supervisor and the four delegate skills ship inside the mod, in
 // bundled-skills/ (a folder Claude Code does not load as plugin skills, so nothing doubles
 // up), and are copied to ~/.claude/skills/<name> at session start when they are missing.
 // A copy the person made is never touched; a copy this mod made carries a marker and is

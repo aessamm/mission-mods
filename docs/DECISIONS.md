@@ -35,3 +35,4 @@ each one is in the next wake-up report.
 | D-028 | 2026-10-22 | Ship a generic public board-supervisor skill in the mod (#20, #21). Its default language when a project names none is the language the user writes in. | Owner (yes on #13); language default: Sup |
 | D-029 | 2026-10-22 | No directory resubmission until the first submitted version (0.9.2) is approved (#18 parked, blocked). | Owner |
 | D-030 | 2026-10-22 | The four wave-1/2 sessions are archived; new work gets fresh sessions. | Owner |
+| D-031 | 2026-10-22 | 0.14.0 released with the generic board-supervisor skill (#20) and its entry points (#21) after the full suite passed 85/85; the skill's board-cache.mjs is a copy of scripts/board-cache.mjs with skill-relative usage text, so a change to one goes to both. | Sup |

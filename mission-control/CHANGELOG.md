@@ -1,5 +1,15 @@
 # Changelog
 
+## mission-control 0.14.0 — board-supervisor for everyone
+
+- A sixth companion skill, `board-supervisor`: run a project from GitHub Issues and a live
+  project board, with side sessions doing the work in their own worktrees and the supervisor
+  re-checking and landing it, a decisions log, and owner-action issues for what only you can
+  do. Its `setup-board.sh` creates the board and its Status columns, and `board-cache.mjs`
+  keeps the Board tab in step. It replies in the language your project names, else yours (#20).
+- `/supervise [text]` starts it, and an empty Board in a GitHub repo offers **Set up a board**;
+  Help lists both (#21).
+
 ## mission-control 0.13.0 — the week for the client, the time per issue
 
 - `/weekly [days]`: a client update for the last 7 days (or the days given), in Arabic and

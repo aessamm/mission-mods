@@ -87,7 +87,7 @@ const SHOW: { id: keyof Settings['show']; name: string; hint: string }[] = [
   { id: 'statusLine', name: 'Status line', hint: 'The line above the prompt' },
   { id: 'inbox', name: 'Waiting on you', hint: 'Owner issues, reviews and failed runs above the prompt, with a toast for new owner issues' },
   { id: 'toastsAll', name: 'Toasts for every finished agent', hint: 'Off: only for agents that need you' },
-  { id: 'skills', name: 'Install companion skills', hint: 'Copy the kickoff and delegate skills to ~/.claude/skills when they are missing' },
+  { id: 'skills', name: 'Install companion skills', hint: 'Copy the kickoff, board-supervisor and delegate skills to ~/.claude/skills when they are missing' },
 ]
 
 // Dollars from what the person typed: "$8", "8.50", "12,000". Undefined when not a positive amount.

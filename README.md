@@ -24,7 +24,8 @@ Your agent team at a glance, in a side panel and a status line above the prompt.
   limits over the last 7 days of run-log, plus `.ops/runs`) and the latest decisions (`D-###`
   headings or a decisions table, from `.ops/memory/` or `docs/DECISIONS.md`). Pick a ticket
   and **Start** fills the composer with its delegation request; **Open** goes to the issue; the row also shows
-  the time its run-log runs took so far.
+  the time its run-log runs took so far. An empty Board in a GitHub repo offers **Set up a
+  board**, which starts `board-supervisor`.
 - **Worktrees** — every worktree of the repo: branch, the issue it names, last commit,
   uncommitted changes and whether it is pushed, with buttons to review and land, remove or
   open one in a session (read-only git; the buttons fill the composer).
@@ -105,17 +106,19 @@ Save, quit the Claude desktop app completely and open it again.
 | `/handoff [note]` | Write the note the next session starts from |
 | `/ship` | PR description, changelog and a client update, after checks (with a GitHub board: the issues the branch's commits name, and which are not in Review yet) |
 | `/weekly [days]` | A client update for the last 7 days (or the days given), in Arabic and English, from the issues closed and in progress, the commits and the day log; a card to copy from, nothing is sent |
+| `/supervise [text]` | Starts the `board-supervisor` skill: fills the composer with `/board-supervisor` and the text, for you to send |
 | `/budget 5h <percent>` | When new agents pause: a share of the 5-hour window, `week <percent>`, `plan`, `auto` or a daily dollar amount |
 
 ## Companion skills
 
-Mission Control ships five skills and copies any that are missing to `~/.claude/skills`
+Mission Control ships six skills and copies any that are missing to `~/.claude/skills`
 when a session starts. A copy you already have is never touched. Turn this off in
 **Settings › Panel › Install companion skills**.
 
 | Skill | What it does | Shown in |
 | --- | --- | --- |
 | `ai-team-project-kickoff` | Plans a project for a team of AI agents and writes the `.ops/` layer | Board |
+| `board-supervisor` | Runs a project from GitHub Issues and a live project board: sets up labels, the board and a commit rule, hands issues to side sessions in their own worktrees, re-checks and lands their work, logs decisions, and parks what only you can do as owner-action issues. Start it with `/supervise` | Board |
 | `codex-delegate` | Hands a coding task to the Codex CLI | Delegations |
 | `agy-delegate` | Hands a coding task to Google Antigravity | Delegations |
 | `opencode-delegate` | Hands a coding task to the OpenCode CLI | Delegations |

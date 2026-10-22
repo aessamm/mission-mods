@@ -33,6 +33,8 @@ Everything runs locally.
   (Codex, or another Claude when Settings' Builder row names a Claude model), with a warning
   when that implementer is rate-limited; **Open** goes to the GitHub issue. The picked
   ticket's row also shows its run-log runs so far: count, total time and runs per implementer.
+  When there is no board and the repository is on GitHub, **Set up a board** fills the
+  composer with a `board-supervisor` request to set one up.
 - **Worktrees**: every worktree of the repository from `git worktree list`: folder, branch,
   the issue it names (from the branch or its commits), last commit and its age, uncommitted
   changes, ahead/behind or not pushed. Buttons fill the composer to review and land a
@@ -64,12 +66,16 @@ installers and the terminal command. Then start a new session and type `/mission
 | `/handoff [note]` | Write the note the next session starts from |
 | `/ship` | PR description, changelog and a client update, after checks (with a GitHub board: the issues the branch's commits name, and which are not in Review yet) |
 | `/weekly [days]` | A client update for the last 7 days (or the days given), in Arabic and English, from the issues closed and in progress, the commits and the day log; a card to copy from, nothing is sent |
+| `/supervise [text]` | Starts the `board-supervisor` skill: fills the composer with `/board-supervisor` and the text, for you to send |
 | `/budget 5h <percent>` | When new agents pause: a share of the 5-hour window, `week <percent>`, `plan`, `auto` or a daily dollar amount |
 
 ## Companion skills
 
-The plugin ships five skills: `ai-team-project-kickoff`, which plans a project and writes
-the `.ops/` folder, and `codex-delegate`, `agy-delegate`, `opencode-delegate` and
+The plugin ships six skills: `ai-team-project-kickoff`, which plans a project and writes
+the `.ops/` folder; `board-supervisor`, which runs a project from GitHub Issues and a live
+project board (it sets up labels, the board with its Status columns and a commit rule, hands
+issues to side sessions in their own worktrees, re-checks and lands their work, and keeps a
+decisions log; its scripts call `gh` as you, the mod itself never does); and `codex-delegate`, `agy-delegate`, `opencode-delegate` and
 `claude-delegate`, which hand a coding task to that CLI. When `MC_RUN_LOG` points at Mission
 Control's `run-log.mjs`, the Codex, agy and OpenCode skills also log each run's start and end
 to the project's activity log; without it they skip that step. The delegate skills run only the
@@ -162,7 +168,7 @@ anywhere.
 
 ### Files it writes
 
-Only the companion skills: when a session starts it copies any of the five that are missing
+Only the companion skills: when a session starts it copies any of the six that are missing
 into `~/.claude/skills/<skill>` (or `$CLAUDE_CONFIG_DIR/skills/<skill>`), with a small
 `.mission-control.json` marker in each folder it creates. These are instruction files that
 Claude reads when a skill is used. A skill folder you already have is never touched. Turn
