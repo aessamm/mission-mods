@@ -17,3 +17,6 @@ each one is in the next wake-up report.
 | D-010 | 2026-10-22 | The supervisor checks its sessions every 30 minutes when they have not reported and sends the owner a status brief each time. | Owner |
 | D-011 | 2026-10-22 | Side sessions here cannot write to the GitHub board (permission denied), so the supervisor moves their cards. | Sup, owner asleep |
 | D-012 | 2026-10-22 | board-supervisor in the mod: proposal in `docs/board-supervisor-in-mod.md`; the board pieces (#10-#12) go ahead, shipping a generic public skill (#13) waits for the owner. | Sup, owner asleep |
+| D-013 | 2026-10-22 | The version shows in the mod and grows a What's new and Changelog section (#14); the CHANGELOG moves inside the plugin folder so it installs with the mod. | Owner |
+| D-014 | 2026-10-22 | 0.12.0 ships #5, #6, #7 and #14 together (and #10 if it is ready), after a quiet full test run. | Sup, owner asleep |
+| D-015 | 2026-10-22 | A relay result counts as rate-limited only when the run failed or says so in `rateLimited`; words in a finished run's message do not count. | Sup, owner asleep |
