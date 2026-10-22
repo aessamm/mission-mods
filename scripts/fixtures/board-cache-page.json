@@ -1,0 +1,268 @@
+{
+  "data": {
+    "repository": {
+      "nameWithOwner": "aessamm/mission-mods",
+      "open": {
+        "pageInfo": {
+          "hasNextPage": false,
+          "endCursor": "Y3Vyc29yOnYyOpK0MjAyNi0xMC0yMlQwNDozMjo1OFrPAAAAAWQGV_8="
+        },
+        "nodes": [
+          {
+            "number": 13,
+            "title": "Owner: ship a generic board-supervisor skill in the mod?",
+            "state": "OPEN",
+            "url": "https://github.com/aessamm/mission-mods/issues/13",
+            "labels": {
+              "nodes": [
+                {
+                  "name": "type:feature"
+                },
+                {
+                  "name": "priority:p2"
+                },
+                {
+                  "name": "owner-action"
+                },
+                {
+                  "name": "area:skills"
+                }
+              ]
+            },
+            "assignees": {
+              "nodes": []
+            },
+            "projectItems": {
+              "nodes": [
+                {
+                  "project": {
+                    "number": 5,
+                    "owner": {
+                      "login": "aessamm"
+                    }
+                  },
+                  "status": {
+                    "name": "Waiting on owner"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "number": 11,
+            "title": "Board: read a repo-local board cache when there is no Mission Control",
+            "state": "OPEN",
+            "url": "https://github.com/aessamm/mission-mods/issues/11",
+            "labels": {
+              "nodes": [
+                {
+                  "name": "type:feature"
+                },
+                {
+                  "name": "priority:p2"
+                },
+                {
+                  "name": "area:board"
+                }
+              ]
+            },
+            "assignees": {
+              "nodes": []
+            },
+            "projectItems": {
+              "nodes": [
+                {
+                  "project": {
+                    "number": 5,
+                    "owner": {
+                      "login": "aessamm"
+                    }
+                  },
+                  "status": {
+                    "name": "Todo"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "number": 12,
+            "title": "Skill script: board-cache.mjs writes the repo's issues and board Status",
+            "state": "OPEN",
+            "url": "https://github.com/aessamm/mission-mods/issues/12",
+            "labels": {
+              "nodes": [
+                {
+                  "name": "type:feature"
+                },
+                {
+                  "name": "priority:p2"
+                },
+                {
+                  "name": "area:skills"
+                }
+              ]
+            },
+            "assignees": {
+              "nodes": []
+            },
+            "projectItems": {
+              "nodes": [
+                {
+                  "project": {
+                    "number": 5,
+                    "owner": {
+                      "login": "aessamm"
+                    }
+                  },
+                  "status": {
+                    "name": "In progress"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "number": 14,
+            "title": "Version in the mod, What's new and a Changelog section",
+            "state": "OPEN",
+            "url": "https://github.com/aessamm/mission-mods/issues/14",
+            "labels": {
+              "nodes": [
+                {
+                  "name": "type:feature"
+                },
+                {
+                  "name": "priority:p1"
+                },
+                {
+                  "name": "area:docs"
+                }
+              ]
+            },
+            "assignees": {
+              "nodes": []
+            },
+            "projectItems": {
+              "nodes": []
+            }
+          }
+        ]
+      },
+      "closed": {
+        "nodes": [
+          {
+            "number": 9,
+            "title": "Repo: commit-msg rule and CLAUDE.md for the board workflow",
+            "state": "CLOSED",
+            "url": "https://github.com/aessamm/mission-mods/issues/9",
+            "labels": {
+              "nodes": [
+                {
+                  "name": "type:chore"
+                },
+                {
+                  "name": "priority:p1"
+                },
+                {
+                  "name": "area:meta"
+                }
+              ]
+            },
+            "assignees": {
+              "nodes": []
+            },
+            "projectItems": {
+              "nodes": [
+                {
+                  "project": {
+                    "number": 5,
+                    "owner": {
+                      "login": "aessamm"
+                    }
+                  },
+                  "status": {
+                    "name": "Done"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "number": 8,
+            "title": "Release Mission Control 0.11.0",
+            "state": "CLOSED",
+            "url": "https://github.com/aessamm/mission-mods/issues/8",
+            "labels": {
+              "nodes": [
+                {
+                  "name": "type:chore"
+                },
+                {
+                  "name": "priority:p1"
+                },
+                {
+                  "name": "area:docs"
+                }
+              ]
+            },
+            "assignees": {
+              "nodes": []
+            },
+            "projectItems": {
+              "nodes": [
+                {
+                  "project": {
+                    "number": 5,
+                    "owner": {
+                      "login": "aessamm"
+                    }
+                  },
+                  "status": {
+                    "name": "Done"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "projectsV2": {
+        "nodes": [
+          {
+            "number": 5,
+            "title": "Mission Mods",
+            "url": "https://github.com/users/aessamm/projects/5",
+            "closed": false,
+            "owner": {
+              "__typename": "User",
+              "login": "aessamm"
+            },
+            "field": {
+              "options": [
+                {
+                  "name": "Backlog"
+                },
+                {
+                  "name": "Todo"
+                },
+                {
+                  "name": "In progress"
+                },
+                {
+                  "name": "Review"
+                },
+                {
+                  "name": "Waiting on owner"
+                },
+                {
+                  "name": "Done"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}
