@@ -22,3 +22,5 @@ each one is in the next wake-up report.
 | D-015 | 2026-10-22 | A relay result counts as rate-limited only when the run failed or says so in `rateLimited`; words in a finished run's message do not count. | Sup, owner asleep |
 | D-016 | 2026-10-22 | graft's `/graft/` ignore line is committed (it keeps graft's regenerable cache out of git); its `.ignore` file stays untracked. | Sup, owner asleep |
 | D-017 | 2026-10-22 | Worktrees is its own tab between Board and Log (the Log hotkey moves from 4 to 5), not a Board section: branches on disk are neither issues nor runs. | Sup, owner asleep |
+| D-018 | 2026-10-22 | The 0.12.0 release waits for proof the suite is green: each test file run alone in sequence (or the full suite once #16 gives session and pane tests a 30 s timeout). | Sup, owner asleep |
+| D-019 | 2026-10-22 | `mission-control/CHANGELOG.md` is the changelog (it ships with the mod for What's new); the root `CHANGELOG.md` only points to it. | Sup, owner asleep |
