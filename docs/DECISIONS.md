@@ -27,3 +27,5 @@ each one is in the next wake-up report.
 | D-020 | 2026-10-22 | At most two sessions work at once while the machine runs at 100% CPU; the others wait idle until the release. | Sup, owner asleep |
 | D-021 | 2026-10-22 | D-007 is narrowed: a timeout is called load only after the file passes alone with a 60 s timeout. A timeout had hidden a real Info tab crash (#14, fixed in 907b7d8). | Sup, owner asleep |
 | D-022 | 2026-10-22 | Next feature: /weekly, a client update for the week in Arabic and English (#17), from the owner-approved idea list. | Sup, owner asleep |
+| D-023 | 2026-10-22 | 0.12.0 released (#5, #6, #7, #10, #11, #12, #14, #15) after every test file passed alone with a 60 s timeout (74/74); main pushed and the install updated. | Sup, owner asleep |
+| D-024 | 2026-10-22 | Finished sessions (owner-inbox, worktrees-view) are left idle, not archived: archiving needs the owner's yes per session. Their worktrees are clean and their work is on main. | Sup, owner asleep |
