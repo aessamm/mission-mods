@@ -20,3 +20,5 @@ each one is in the next wake-up report.
 | D-013 | 2026-10-22 | The version shows in the mod and grows a What's new and Changelog section (#14); the CHANGELOG moves inside the plugin folder so it installs with the mod. | Owner |
 | D-014 | 2026-10-22 | 0.12.0 ships #5, #6, #7 and #14 together (and #10 if it is ready), after a quiet full test run. | Sup, owner asleep |
 | D-015 | 2026-10-22 | A relay result counts as rate-limited only when the run failed or says so in `rateLimited`; words in a finished run's message do not count. | Sup, owner asleep |
+| D-016 | 2026-10-22 | graft's `/graft/` ignore line is committed (it keeps graft's regenerable cache out of git); its `.ignore` file stays untracked. | Sup, owner asleep |
+| D-017 | 2026-10-22 | Worktrees is its own tab between Board and Log (the Log hotkey moves from 4 to 5), not a Board section: branches on disk are neither issues nor runs. | Sup, owner asleep |
