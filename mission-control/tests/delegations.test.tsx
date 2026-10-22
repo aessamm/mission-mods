@@ -176,7 +176,7 @@ test('who is rate limited comes from run-log lines and results, inside the windo
     'not json',
     '{"ts":"2026-10-22T05:20:00Z","actor":"agy","event":"run.completed","source":"run-log","detail":{"agent":"agy","rateLimited":true}}',
   ].join('\n')
-  expect(limitsFromActivity(log).map(h => h.tool)).toEqual(['codex', 'agy'])
+  expect(limitsFromActivity(log).map(hit => hit.tool)).toEqual(['codex', 'agy'])
   expect(limitsFromActivity('{"event":"x"}')).toEqual([])
   expect(applyResult({ status: 'failed', error: 'rate limit exceeded' }, 5)).toMatchObject({ status: 'failed', rateLimited: true })
   expect(limitsFromDelegations([{ ...base, rateLimited: true, endedAt: 9 }, base])).toEqual([{ tool: 'agy', at: 9 }])

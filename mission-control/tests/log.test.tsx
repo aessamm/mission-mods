@@ -58,8 +58,8 @@ test('the Log tab, /standup and /handoff work from a session and a finished agen
   const standup = await $.command.run({ command: 'standup', args: '' })
   expect(standup.text?.includes('demo: ')).toBe(true)
   expect(standup.text?.includes('Mapped the session store')).toBe(true)
-  const h = await $.command.run({ command: 'handoff', args: 'Stopped after the map.' })
-  expect(h.text?.includes('Handoff saved for demo')).toBe(true)
+  const handoffRun = await $.command.run({ command: 'handoff', args: 'Stopped after the map.' })
+  expect(handoffRun.text?.includes('Handoff saved for demo')).toBe(true)
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ plugin: 'mission-control', surface, ...PANE })
     await ui.press({ key: 'tab-log' })

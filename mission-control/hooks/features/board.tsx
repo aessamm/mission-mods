@@ -250,11 +250,11 @@ export function parseActivity(src: string, limit = 30): ActivityEvent[] {
     if (HOOK_EVENTS.has(a.event)) {
       const top = out[out.length - 1]
       const group = top?.hooks ? top : undefined
-      const h = group?.hooks ?? { started: 0, ended: 0, subagents: 0 }
-      if (a.event === 'session.started') h.started++
-      else if (a.event === 'session.ended') h.ended++
-      else h.subagents++
-      if (!group) out.push({ ts: a.ts, actor: a.actor, event: 'claude.sessions', hooks: h })
+      const counts = group?.hooks ?? { started: 0, ended: 0, subagents: 0 }
+      if (a.event === 'session.started') counts.started++
+      else if (a.event === 'session.ended') counts.ended++
+      else counts.subagents++
+      if (!group) out.push({ ts: a.ts, actor: a.actor, event: 'claude.sessions', hooks: counts })
     } else out.push(a)
     if (out.length > limit) break
   }
@@ -305,8 +305,8 @@ const hhmm = (ts: string): string => {
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 export function activityLine(a: ActivityEvent): { time: string; text: string } {
   if (a.hooks) {
-    const h = a.hooks
-    const parts = [h.started ? `${plural(h.started, 'session', 'sessions')} started` : '', h.ended ? `${h.ended} ended` : '', h.subagents ? `${plural(h.subagents, 'subagent', 'subagents')} stopped` : ''].filter(Boolean)
+    const counts = a.hooks
+    const parts = [counts.started ? `${plural(counts.started, 'session', 'sessions')} started` : '', counts.ended ? `${counts.ended} ended` : '', counts.subagents ? `${plural(counts.subagents, 'subagent', 'subagents')} stopped` : ''].filter(Boolean)
     return { time: hhmm(a.ts), text: `Claude: ${parts.join(', ')}` }
   }
   const what = a.event.replace(/[._]/g, ' ')

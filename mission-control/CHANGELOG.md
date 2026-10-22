@@ -1,5 +1,10 @@
 # Changelog
 
+## mission-control 0.14.1 — passes the directory's check again
+
+- No .tsx file uses `h` (what JSX compiles to) as a name of its own any more; the
+  plugin directory's check blocked 0.14.0 on it. Nothing changes in what the mod does (#22).
+
 ## mission-control 0.14.0 — board-supervisor for everyone
 
 - A sixth companion skill, `board-supervisor`: run a project from GitHub Issues and a live

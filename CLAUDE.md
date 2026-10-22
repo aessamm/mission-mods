@@ -21,7 +21,9 @@ Owner ↔ supervisor discussion is in Egyptian Arabic; every file in the repo is
 
 - Load the `plugin-authoring` skill before changing anything under `mission-control/`.
 - Gates: `claude plugin validate mission-control`, `claude plugin validate .`,
-  `claude plugin test mission-control`, `node --test scripts/check-commit-msg.test.mjs`.
+  `claude plugin test mission-control`, `node --test scripts/check-commit-msg.test.mjs scripts/check-jsx-names.test.mjs`.
+- Never name anything `h` or `Fragment` in a `.tsx`/`.jsx` file (JSX compiles to `h`): the plugin
+  directory blocks it and `claude plugin validate` does not; `scripts/check-jsx-names.test.mjs` does.
 - A test that times out is not proven to be load: a timeout hid a real render error in #14.
   Rerun that file alone with `{ timeoutMs: 60_000 }` and see it pass or show its real error.
 - The mod never calls GitHub or `gh` and never runs git writes; its buttons fill the composer.
