@@ -57,6 +57,19 @@ export const samePath = (a: string, b: string): boolean => {
   return isWinPath(x) || isWinPath(y) ? x.toLowerCase() === y.toLowerCase() : x === y
 }
 
+// Mission Control's folder from MC_RUN_LOG (".../mission-control/scripts/run-log.mjs").
+export const mcDirOfRunLog = (p: string): string => {
+  const s = p.trim().replace(/\\/g, '/')
+  return /\/scripts\/run-log\.mjs$/.test(s) ? s.replace(/\/scripts\/run-log\.mjs$/, '') : ''
+}
+
+// Where Mission Control may live, in the order the Board and Delegations look: MC_DIR, the folder of
+// MC_RUN_LOG's script, a "mission-control" folder beside the repo.
+export function mcDirsOf(mcDir: string | undefined, runLog: string | undefined, root: string): string[] {
+  const dirs = [mcDir ?? '', runLog ? mcDirOfRunLog(runLog) : '', root ? `${parentOf(root)}/mission-control` : '']
+  return [...new Set(dirs.filter(x => x.trim()).map(x => x.trim().replace(/\\/g, '/').replace(/\/+$/, '')))]
+}
+
 // "~" and "~/x" become the home folder; anything else is returned as it is.
 export function expandHome(p: string, home: string): string {
   if (!home) return p

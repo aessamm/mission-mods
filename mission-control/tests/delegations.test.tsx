@@ -1,7 +1,8 @@
 import { expect, mock, test } from 'claude-code/testing'
 
 import type { BoardSnapshot, Delegation, TicketStatus } from '../types'
-import { applyResult, cardMoveFor, fromRun, fromRunLog, mcDirsOf, movePrompt, parseRelay, parseShortstat, progressOf, promptFor, sameRun, syncPrompt, taskOf, ticketOf } from '../hooks/features/delegations'
+import { applyResult, cardMoveFor, fromRun, fromRunLog, movePrompt, parseRelay, parseShortstat, progressOf, promptFor, sameRun, syncPrompt, taskOf, ticketOf } from '../hooks/features/delegations'
+import { mcDirsOf } from '../hooks/kit/paths'
 
 
 const PANE = {

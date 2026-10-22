@@ -1,9 +1,9 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { TestBody } from 'claude-code/testing'
 
-import { activityLine, filterTickets, githubCacheOf, mcDirOfRunLog, parseActivity, parseFrontmatter, parseTicket, remoteIs, sectionsOf, staleNote, sourceTag } from '../hooks/features/board'
+import { activityLine, filterTickets, githubCacheOf, parseActivity, parseFrontmatter, parseTicket, remoteIs, sectionsOf, staleNote, sourceTag } from '../hooks/features/board'
 import { implementerOf, issueNumberOf, startBrief } from '../hooks/kit/brief'
-import { resolveIn, samePath } from '../hooks/kit/paths'
+import { mcDirOfRunLog, resolveIn, samePath } from '../hooks/kit/paths'
 import { DEFAULT_SETTINGS } from '../hooks/kit/state'
 
 const PANE = {

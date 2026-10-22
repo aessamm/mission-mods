@@ -7,7 +7,7 @@ import type { EngineInterface, On, RenderElement } from 'claude-code'
 
 import type { ActivityEvent, AgentRecord, AgentRunStats, BoardSnapshot, BoardSource, DecisionNote, Delegation, Settings, Ticket, TicketStatus } from '../../types'
 import { fmtSpan } from '../kit/role'
-import { parentOf, resolveIn, samePath } from '../kit/paths'
+import { mcDirsOf, resolveIn, samePath } from '../kit/paths'
 import { emptyState } from '../kit/ui'
 import { activeTab, badgesFrom, clip, tabBar } from '../kit/chrome'
 import { barText, box, hline, iconInk, progress, svg, text, textWidth, wide } from '../kit/draw'
@@ -115,11 +115,6 @@ export function remoteIs(remote: string, repo: string): boolean {
   return !!want && (r.endsWith(`/${want}`) || r.endsWith(`:${want}`))
 }
 
-// Mission Control's folder from MC_RUN_LOG (".../mission-control/scripts/run-log.mjs").
-export const mcDirOfRunLog = (p: string): string => {
-  const s = p.trim().replace(/\\/g, '/')
-  return /\/scripts\/run-log\.mjs$/.test(s) ? s.replace(/\/scripts\/run-log\.mjs$/, '') : ''
-}
 
 // Ticket ids in a frontmatter list: "[M0-003, M0-004]" or "M0-003, M0-004".
 export const idsIn = (raw: string): string[] => [...new Set(raw.match(/\b[A-Za-z][\w]*-\d+\b/g) ?? [])]
@@ -295,10 +290,8 @@ async function walk($: EngineInterface, dir: string, out: string[], depth: numbe
 // cache counts only when it is this repo's: its GitHub repo is the origin remote, or, with
 // no remote, Mission Control's mc.config.json points its appDir here.
 async function githubFor($: EngineInterface, root: string, remote: string | null): Promise<GithubCache | null> {
-  const runLog = await $.env.get('MC_RUN_LOG').catch(() => undefined)
-  const dirs = [await $.env.get('MC_DIR').catch(() => undefined), runLog ? mcDirOfRunLog(runLog) : '', `${parentOf(root)}/mission-control`]
-    .filter((d): d is string => !!d && !!d.trim()).map(d => d.trim().replace(/\\/g, '/').replace(/\/+$/, ''))
-  for (const dir of [...new Set(dirs)]) {
+  const dirs = mcDirsOf(await $.env.get('MC_DIR').catch(() => undefined), await $.env.get('MC_RUN_LOG').catch(() => undefined), root)
+  for (const dir of dirs) {
     const src = await $.fs.read(`${dir}/.cache/github-tasks.json`).catch(() => '')
     if (typeof src !== 'string' || !src) continue
     let cache: GithubCache | null = null

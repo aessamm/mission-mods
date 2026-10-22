@@ -6,12 +6,11 @@ import { failedView } from '../kit/ui'
 import type { EngineInterface, On, RenderElement } from 'claude-code'
 
 import type { AgentRecord, BoardSnapshot, Delegation, DelegationTool, TicketStatus } from '../../types'
-import { mcDirOfRunLog } from './board'
 import { emptyState } from '../kit/ui'
 import { activeTab, badgesFrom, clip, tabBar } from '../kit/chrome'
 import { barText, box, chip, estText, iconInk, label, outline, progress, statusWord, svg, text, textWidth, wide } from '../kit/draw'
 import { fmtSpan, fmtTime } from '../kit/role'
-import { expandHome, homeOf, isWindowsHome, parentOf, tmpOf } from '../kit/paths'
+import { expandHome, homeOf, isWindowsHome, mcDirsOf, tmpOf } from '../kit/paths'
 import type { HomeEnv } from '../kit/paths'
 import { DEFAULT_PANEL, DEFAULT_SETTINGS, localDay, makeCtx, settingsOf } from '../kit/state'
 import type { PaneInput } from '../kit/state'
@@ -261,12 +260,6 @@ export function movePrompt(m: CardMove, d: Delegation, b: BoardSnapshot): string
     + 'Tell me exactly what you will change and wait for my go before moving the card.'
 }
 
-// Where Mission Control may live, in the order board.tsx looks: MC_DIR, the folder of
-// MC_RUN_LOG's script, a "mission-control" folder beside the repo.
-export function mcDirsOf(mcDir: string | undefined, runLog: string | undefined, root: string): string[] {
-  const dirs = [mcDir ?? '', runLog ? mcDirOfRunLog(runLog) : '', root ? `${parentOf(root)}/mission-control` : '']
-  return [...new Set(dirs.filter(x => x.trim()).map(x => x.trim().replace(/\\/g, '/').replace(/\/+$/, '')))]
-}
 
 export function syncPrompt(script: string, b: BoardSnapshot): string {
   const repo = b.source?.kind === 'github' ? b.source.repo : b.project
