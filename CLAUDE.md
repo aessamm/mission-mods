@@ -21,7 +21,7 @@ Owner ↔ supervisor discussion is in Egyptian Arabic; every file in the repo is
 
 - Load the `plugin-authoring` skill before changing anything under `mission-control/`.
 - Gates: `claude plugin validate mission-control`, `claude plugin validate .`,
-  `claude plugin test mission-control`, `node --test scripts/`.
+  `claude plugin test mission-control`, `node --test scripts/check-commit-msg.test.mjs`.
 - The mod never calls GitHub or `gh` and never runs git writes; its buttons fill the composer.
 - `$.env.get` takes a literal name. In tests the host resolves mocked paths against its own
   drive: match mock paths on the tail. Files are CRLF on Windows; write them with an editor,
