@@ -5,12 +5,13 @@ import { atom, read, update } from 'claude-code'
 import { failedView } from '../kit/ui'
 import type { EngineInterface, On, RenderElement } from 'claude-code'
 
-import type { AgentRecord, BoardSnapshot, Delegation, DelegationTool } from '../../types'
+import type { AgentRecord, BoardSnapshot, Delegation, DelegationTool, TicketStatus } from '../../types'
+import { mcDirOfRunLog } from './board'
 import { emptyState } from '../kit/ui'
 import { activeTab, badgesFrom, clip, tabBar } from '../kit/chrome'
 import { barText, box, chip, estText, iconInk, label, outline, progress, statusWord, svg, text, textWidth, wide } from '../kit/draw'
 import { fmtSpan, fmtTime } from '../kit/role'
-import { expandHome, homeOf, isWindowsHome, tmpOf } from '../kit/paths'
+import { expandHome, homeOf, isWindowsHome, parentOf, tmpOf } from '../kit/paths'
 import type { HomeEnv } from '../kit/paths'
 import { DEFAULT_PANEL, DEFAULT_SETTINGS, localDay, makeCtx, settingsOf } from '../kit/state'
 import type { PaneInput } from '../kit/state'
@@ -224,6 +225,55 @@ export function promptFor(kind: 'retry' | 'fix' | 'review' | 'merge' | 'branch',
   }
 }
 
+// ---------------------------------------------------------------- board cards (suggested, never moved here)
+// A GitHub board's columns in order; a card is only ever suggested forwards.
+const COLUMN_RANK: Record<TicketStatus, number> = { todo: 0, ready: 0, blocked: 0, in_progress: 1, rework: 1, in_review: 2, waiting: 3, done: 4 }
+const COLUMN_NAME: Record<TicketStatus, string> = {
+  todo: 'Todo', ready: 'Todo', blocked: 'Todo', in_progress: 'In progress', rework: 'In progress', in_review: 'Review', waiting: 'Waiting on owner', done: 'Done',
+}
+export type CardMove = { issue: string; title: string; from: string; to: 'Review' | 'Done'; url?: string }
+
+// Where a finished run's issue belongs: Review once it waits for review, Done once the person
+// marked it merged. Null when the board is not GitHub's, the issue is not on it, or the card
+// is already there or further.
+export function cardMoveFor(d: Delegation, b: BoardSnapshot | null): CardMove | null {
+  if (!d.ticket?.startsWith('#') || b?.source?.kind !== 'github') return null
+  const to = d.status === 'merged' ? 'Done' : d.status === 'review' || d.status === 'done' ? 'Review' : undefined
+  if (!to) return null
+  const t = b.tickets.find(x => x.id === d.ticket)
+  if (!t || COLUMN_RANK[t.status] === undefined || COLUMN_RANK[t.status] >= (to === 'Done' ? 4 : 2)) return null
+  return { issue: d.ticket, title: t.title, from: COLUMN_NAME[t.status], to, ...(t.url ? { url: t.url } : {}) }
+}
+
+// "Agenca #3" is the project titled Agenca, number 3.
+const projectOf = (b: BoardSnapshot): string => {
+  const src = b.source?.kind === 'github' ? b.source : undefined
+  const m = /^(.*?)\s*#(\d+)$/.exec(src?.board ?? '')
+  const name = m ? `the project board "${m[1]}" (number ${m[2]})` : src?.board ? `the project board "${src.board}"` : 'its project board'
+  return `${name}${src?.url ? ` at ${src.url}` : ''}`
+}
+
+export function movePrompt(m: CardMove, d: Delegation, b: BoardSnapshot): string {
+  const repo = b.source?.kind === 'github' ? b.source.repo : b.project
+  const why = m.to === 'Done' ? 'I marked its run merged' : `the ${toolLabel(d)} run${d.branch ? ` on ${d.branch}` : ''} is waiting for review`
+  return `Move issue ${m.issue} "${m.title}" of ${repo} on ${projectOf(b)} from ${m.from} to the Status "${m.to}": ${why}. `
+    + 'Use `gh project item-edit` (look up the project, item and Status field ids with `gh project item-list` and `gh project field-list`) or Mission Control\'s tools. '
+    + 'Tell me exactly what you will change and wait for my go before moving the card.'
+}
+
+// Where Mission Control may live, in the order board.tsx looks: MC_DIR, the folder of
+// MC_RUN_LOG's script, a "mission-control" folder beside the repo.
+export function mcDirsOf(mcDir: string | undefined, runLog: string | undefined, root: string): string[] {
+  const dirs = [mcDir ?? '', runLog ? mcDirOfRunLog(runLog) : '', root ? `${parentOf(root)}/mission-control` : '']
+  return [...new Set(dirs.filter(x => x.trim()).map(x => x.trim().replace(/\\/g, '/').replace(/\/+$/, '')))]
+}
+
+export function syncPrompt(script: string, b: BoardSnapshot): string {
+  const repo = b.source?.kind === 'github' ? b.source.repo : b.project
+  return `Run \`node "${script}" --dry-run\` to see which cards of ${repo} on ${projectOf(b)} are out of step with the work, and show me the moves it lists. `
+    + 'Only if I agree, run it again without --dry-run to apply them.'
+}
+
 // ---------------------------------------------------------------- tracking (the only code that touches $)
 async function patch($: EngineInterface, id: string, change: Partial<Delegation>): Promise<void> {
   await update($, delegations, m => (m[id] ? { ...m, [id]: { ...m[id], ...change } } : m))
@@ -258,6 +308,21 @@ async function gitBranch($: EngineInterface, id: string, cwd: string): Promise<v
 
 async function rootOf($: EngineInterface): Promise<string> {
   try { return await $.session.root() } catch { return '' }
+}
+
+// Mission Control's board-sync.mjs for the board's repo, looked up once per repo root.
+const syncScripts = new Map<string, string | null>()
+async function boardSyncScript($: EngineInterface, root: string): Promise<string | null> {
+  const known = syncScripts.get(root)
+  if (known !== undefined) return known
+  const get = (v: Promise<string | undefined>) => v.catch(() => undefined)
+  let found: string | null = null
+  for (const dir of mcDirsOf(await get($.env.get('MC_DIR')), await get($.env.get('MC_RUN_LOG')), root)) {
+    const p = `${dir}/scripts/board-sync.mjs`
+    if (await $.fs.exists(p).catch(() => false)) { found = p; break }
+  }
+  syncScripts.set(root, found)
+  return found
 }
 
 async function record($: EngineInterface, command: unknown, toolUseId: unknown): Promise<void> {
@@ -537,6 +602,14 @@ async function renderTab($: EngineInterface, ctx: TabCtx): Promise<RenderElement
   const theme = s.look.theme, motion = s.look.motion
   const fill = (kind: Parameters<typeof promptFor>[0], d: Delegation) => () => void $.prompt.fill({ text: promptFor(kind, d), mode: 'replace' })
   const toggle = (key: string) => () => void update($, panel, q => ({ ...q, expanded: { ...q.expanded, [key]: !q.expanded[key] } }))
+  const brd = await read($, board)
+  const gh = brd?.source?.kind === 'github' ? brd : null
+  const syncScript = gh ? await boardSyncScript($, gh.root) : null
+  const fillText = (t: string) => () => void $.prompt.fill({ text: t, mode: 'replace' })
+  const moveButton = (d: Delegation): RenderElement | null => {
+    const m = gh ? cardMoveFor(d, gh) : null
+    return m && gh ? <Button key={`move-${d.id}`} label={`Move ${m.issue} to ${m.to}`} onPress={fillText(movePrompt(m, d, gh))} /> : null
+  }
 
   if (needs.length + review.length + running.length + merged.length === 0) {
     return emptyState(ctx, s.look, 'delegations', 'Nothing delegated', 'Tasks you hand to Codex, agy, OpenCode or another Claude show here with their diff and test results.', 'builder', '#BA7517')
@@ -558,6 +631,7 @@ async function renderTab($: EngineInterface, ctx: TabCtx): Promise<RenderElement
           <Button key={`review-${d.id}`} variant="primary" label="Review diff" onPress={fill('review', d)} />
           <Button key={`merge-${d.id}`} label="Merge" onPress={fill('merge', d)} />
           <Button key={`branch-${d.id}`} plain label="Open branch" onPress={fill('branch', d)} />
+          {moveButton(d)}
         </Box>
       )
     }
@@ -577,6 +651,22 @@ async function renderTab($: EngineInterface, ctx: TabCtx): Promise<RenderElement
     </Box>
   )
   const live = [...needs, ...review, ...running]
+  // Finished runs' card moves (one per issue, Done over Review; none already on a live card),
+  // and Mission Control's board sync, under the cards.
+  const onCards = new Set(review.map(d => (gh ? cardMoveFor(d, gh)?.issue : undefined)).filter(Boolean))
+  const finishedMoves = new Map<string, Delegation>()
+  for (const d of merged) {
+    const m = gh ? cardMoveFor(d, gh) : null
+    if (!m || onCards.has(m.issue)) continue
+    const had = finishedMoves.get(m.issue)
+    if (!had || (m.to === 'Done' && cardMoveFor(had, gh)?.to !== 'Done')) finishedMoves.set(m.issue, d)
+  }
+  const boardBlock = gh && (finishedMoves.size > 0 || syncScript) ? (
+    <Box key="board-moves" flexDirection="row" gap={1}>
+      {[...finishedMoves.values()].map(moveButton)}
+      {syncScript && <Button key="sync-board" plain label="Sync board" onPress={fillText(syncPrompt(syncScript, gh))} />}
+    </Box>
+  ) : null
 
   if (isDesktop && Svg) {
     return (
@@ -589,6 +679,7 @@ async function renderTab($: EngineInterface, ctx: TabCtx): Promise<RenderElement
             {logOf(d)}
           </Box>
         ))}
+        {boardBlock}
         {mergedBlock}
       </Box>
     )
@@ -619,6 +710,7 @@ async function renderTab($: EngineInterface, ctx: TabCtx): Promise<RenderElement
       <Text bold>{`Running ${running.length} · To review ${review.length} · Needs you ${needs.length}`}</Text>
       <Box flexDirection="column" marginTop={1}>
         {live.map(row)}
+        {boardBlock}
         {mergedBlock}
       </Box>
     </Box>

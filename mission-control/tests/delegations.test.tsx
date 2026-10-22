@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import type { Delegation } from '../types'
-import { applyResult, fromRun, fromRunLog, parseRelay, parseShortstat, progressOf, promptFor, sameRun, taskOf, ticketOf } from '../hooks/features/delegations'
+import type { BoardSnapshot, Delegation, TicketStatus } from '../types'
+import { applyResult, cardMoveFor, fromRun, fromRunLog, mcDirsOf, movePrompt, parseRelay, parseShortstat, progressOf, promptFor, sameRun, syncPrompt, taskOf, ticketOf } from '../hooks/features/delegations'
 
 
 const PANE = {
@@ -60,6 +60,95 @@ test('result.json of any shape maps to a status without throwing', async () => {
   expect(fromRun({ status: 'failed', codexVersion: '1' }, 'r', 'P', '/p', '', 1)).toBeNull()
   expect(progressOf({ ...base, status: 'running', startedAt: 0 }, 180000)).toMatchObject({ kind: 'est', ratio: 0.5 })
   expect(promptFor('review', base)).toBe('Review the diff from agy on fix/rtl-header in C:/w/portal and tell me if it is ready to merge.')
+})
+
+const ghBoard = (status: TicketStatus, kind: 'github' | 'ops' = 'github'): BoardSnapshot => ({
+  root: 'D:/w/mos', project: 'mos', activity: [], readAt: 0,
+  tickets: [{ id: '#28', title: 'Mission Control reads GitHub', status, url: 'https://github.com/aessamm/mos/issues/28', path: '' }],
+  source: kind === 'github' ? { kind: 'github', repo: 'aessamm/mos', board: 'Agenca #3', url: 'https://github.com/users/aessamm/projects/3', fetchedAt: 0 } : { kind: 'ops' },
+})
+const run28: Delegation = { ...base, tool: 'codex', ticket: '#28', branch: 'claude/mc' }
+
+test('a finished run suggests moving its card forwards on a GitHub board, and only then', () => {
+  expect(cardMoveFor(run28, ghBoard('todo'))).toMatchObject({ issue: '#28', from: 'Todo', to: 'Review' })
+  expect(cardMoveFor({ ...run28, status: 'done' }, ghBoard('in_progress'))).toMatchObject({ from: 'In progress', to: 'Review' })
+  expect(cardMoveFor({ ...run28, status: 'merged' }, ghBoard('in_review'))).toMatchObject({ from: 'Review', to: 'Done' })
+  expect(cardMoveFor({ ...run28, status: 'merged' }, ghBoard('waiting'))?.to).toBe('Done')
+  // already there or further
+  for (const s of ['in_review', 'waiting', 'done'] as const) expect(cardMoveFor(run28, ghBoard(s))).toBeNull()
+  expect(cardMoveFor({ ...run28, status: 'merged' }, ghBoard('done'))).toBeNull()
+  // not finished, not a GitHub issue, not a GitHub board, not on the board
+  for (const status of ['running', 'failed'] as const) expect(cardMoveFor({ ...run28, status }, ghBoard('todo'))).toBeNull()
+  expect(cardMoveFor({ ...run28, ticket: 'M0-007' }, ghBoard('todo'))).toBeNull()
+  expect(cardMoveFor({ ...run28, ticket: undefined }, ghBoard('todo'))).toBeNull()
+  expect(cardMoveFor(run28, ghBoard('todo', 'ops'))).toBeNull()
+  expect(cardMoveFor({ ...run28, ticket: '#29' }, ghBoard('todo'))).toBeNull()
+  expect(cardMoveFor(run28, null)).toBeNull()
+})
+
+test('the move and sync prompts name the repo, the board and the Status, and ask first', () => {
+  const b = ghBoard('todo')
+  expect(movePrompt(cardMoveFor(run28, b)!, run28, b)).toBe(
+    'Move issue #28 "Mission Control reads GitHub" of aessamm/mos on the project board "Agenca" (number 3) at https://github.com/users/aessamm/projects/3 from Todo to the Status "Review": the Codex run on claude/mc is waiting for review. '
+    + 'Use `gh project item-edit` (look up the project, item and Status field ids with `gh project item-list` and `gh project field-list`) or Mission Control\'s tools. '
+    + 'Tell me exactly what you will change and wait for my go before moving the card.')
+  const done = { ...run28, status: 'merged' as const }
+  expect(movePrompt(cardMoveFor(done, b)!, done, b)).toContain('to the Status "Done": I marked its run merged.')
+  expect(syncPrompt('D:/w/mission-control/scripts/board-sync.mjs', b)).toBe(
+    'Run `node "D:/w/mission-control/scripts/board-sync.mjs" --dry-run` to see which cards of aessamm/mos on the project board "Agenca" (number 3) at https://github.com/users/aessamm/projects/3 are out of step with the work, and show me the moves it lists. '
+    + 'Only if I agree, run it again without --dry-run to apply them.')
+  expect(mcDirsOf(' D:\\mc\\ ', 'D:\\mc\\scripts\\run-log.mjs', 'D:/w/mos')).toEqual(['D:/mc', 'D:/w/mission-control'])
+  expect(mcDirsOf(undefined, '/x/other.mjs', '')).toEqual([])
+})
+
+test('the Delegations tab shows the card move and Sync board, and the buttons only fill the composer', { timeoutMs: 20_000 }, async ($, on) => {
+  const clock = mock.clock(on, { now: Date.parse('2026-10-20T12:00:00Z') })
+  const cache = (status: string) => JSON.stringify({
+    schema: 'mc.github-tasks.v1', fetchedAt: '2026-10-20T11:50:00Z', repo: 'aessamm/mos',
+    project: { owner: 'aessamm', number: 3, title: 'Agenca', url: 'https://github.com/users/aessamm/projects/3' },
+    issues: [{ number: 28, title: 'Mission Control reads GitHub', state: 'open', labels: [], assignees: [], status }],
+  })
+  const files: Record<string, string> = {
+    '/w/mission-control/.cache/github-tasks.json': cache('In progress'),
+    '/w/app/.ops/log/activity.jsonl': JSON.stringify({ ts: '2026-10-20T11:30:00Z', actor: 'codex', event: 'run.completed', issue: 28, source: 'run-log', detail: { agent: 'codex', worktree: '/w/app', branch: 'claude/mc', durationSec: 600 } }),
+  }
+  on('session.start', () => ({ cwd: '/w/app' }))
+  on('command.register', (_$, e) => ({ value: { command: e.name } }))
+  on('tool.register', () => ({ value: undefined as never }))
+  on('session.root', () => ({ value: '/w/app' }))
+  on('session.repo', () => ({ value: { root: '/w/app', name: 'app', remote: 'https://github.com/aessamm/mos.git', internal: false } }))
+  on('fs.exists', (_$, e) => ({ value: norm(e.path).endsWith('/w/mission-control/scripts/board-sync.mjs') }))
+  on('fs.list', () => ({ value: [] }))
+  on('fs.read', (_$, e) => (lookup(files, e.path) === undefined ? { deny: 'ENOENT' } : { value: lookup(files, e.path) as string }))
+  let filled = ''
+  on('prompt.fill', (_$, e) => { filled = e.text; return { isFilled: true } })
+  await $.session.start({ cwd: '/w/app', surface: null, isInteractive: true })
+  await clock.advance(31_000)
+  const open = async (surface: 'terminal' | 'desktop') => {
+    const ui = await $.ui.mount({ plugin: 'mission-control', surface, ...PANE })
+    await ui.press({ key: 'tab-delegations' })
+    return ui
+  }
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await open(surface)
+    const drawn = JSON.stringify(await ui.drawn())
+    expect(drawn).toContain('Move #28 to Review')
+    expect(drawn).toContain('Sync board')
+    await ui.press({ key: 'move-log:codex:2026-10-20T11:30:00Z' })
+    expect(filled).toContain('Move issue #28 "Mission Control reads GitHub" of aessamm/mos on the project board "Agenca" (number 3)')
+    expect(filled).toContain('from In progress to the Status "Review"')
+    await ui.press({ key: 'sync-board' })
+    expect(filled).toContain('mission-control/scripts/board-sync.mjs" --dry-run')
+    await ui.unmount()
+  }
+  // Once the card is in Review, nothing more is suggested.
+  files['/w/mission-control/.cache/github-tasks.json'] = cache('Review')
+  await clock.advance(5 * 60_000)
+  const ui = await open('terminal')
+  const drawn = JSON.stringify(await ui.drawn())
+  expect(drawn).not.toContain('Move #28')
+  expect(drawn).toContain('Sync board')
+  await ui.unmount()
 })
 
 // The engine may hand fs hooks an absolute path in its own spelling: "/w/portal/x" can arrive
