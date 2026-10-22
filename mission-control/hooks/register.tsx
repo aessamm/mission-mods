@@ -9,6 +9,7 @@ import { registerAgents } from './features/agents'
 import { registerBoard } from './features/board'
 import { registerDelegations } from './features/delegations'
 import { registerHelp } from './features/help'
+import { registerInbox } from './features/inbox'
 import { registerInfo } from './features/info'
 import { registerLog } from './features/log'
 import { registerSettings } from './features/settings'
@@ -60,6 +61,7 @@ export const register: Register = on => {
   registerSettings(on)
   registerHelp(on)
   registerInfo(on)
+  registerInbox(on) // before the status line, so its rows wrap the status line's band
   registerStatusLine(on)
   registerShip(on)
   registerSkills(on)

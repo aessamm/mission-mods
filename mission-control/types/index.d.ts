@@ -145,7 +145,7 @@ export type Alert = { id: string; kind: 'budget' | 'tests' | 'blocked' | 'agent'
 // ---------------------------------------------------------------- settings
 export type TabId = 'agents' | 'delegations' | 'board' | 'log' | 'settings' | 'help' | 'info'
 export type Settings = {
-  show: { agents: boolean; delegations: boolean; board: boolean; log: boolean; statusLine: boolean; toastsAll: boolean; skills: boolean }
+  show: { agents: boolean; delegations: boolean; board: boolean; log: boolean; statusLine: boolean; toastsAll: boolean; skills: boolean; inbox: boolean }
   budget: { mode: BudgetMode; fiveHourPauseAt: number; weekPauseAt: number; dailyUsd: number; warnAt: number; pauseWhenReached: boolean }
   routing: { auto: boolean; maxAgents: number; byRole: Record<string, { model?: string; effort?: string }> }
   look: { theme: 'follow' | 'light' | 'dark'; agentsLayout: 'cards' | 'focus' | 'lanes'; motion: 'full' | 'calm' | 'off'; names: 'nato' | 'numbers' | 'custom' }

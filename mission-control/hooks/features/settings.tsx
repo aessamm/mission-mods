@@ -84,6 +84,7 @@ const SHOW: { id: keyof Settings['show']; name: string; hint: string }[] = [
   { id: 'board', name: 'Board', hint: 'GitHub issues through Mission Control, or .ops/tickets' },
   { id: 'log', name: 'Daily log', hint: 'Saved per project, used by /standup' },
   { id: 'statusLine', name: 'Status line', hint: 'The line above the prompt' },
+  { id: 'inbox', name: 'Waiting on you', hint: 'Owner issues, reviews and failed runs above the prompt, with a toast for new owner issues' },
   { id: 'toastsAll', name: 'Toasts for every finished agent', hint: 'Off: only for agents that need you' },
   { id: 'skills', name: 'Install companion skills', hint: 'Copy the kickoff and delegate skills to ~/.claude/skills when they are missing' },
 ]

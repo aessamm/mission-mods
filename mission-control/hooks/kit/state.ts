@@ -8,7 +8,7 @@ import { callsignOf } from './role'
 export const P = 'mission-control' as const
 
 export const DEFAULT_SETTINGS: Settings = {
-  show: { agents: true, delegations: true, board: true, log: true, statusLine: true, toastsAll: false, skills: true },
+  show: { agents: true, delegations: true, board: true, log: true, statusLine: true, toastsAll: false, skills: true, inbox: true },
   budget: { mode: 'auto', fiveHourPauseAt: 90, weekPauseAt: 90, dailyUsd: 5, warnAt: 0.8, pauseWhenReached: true },
   routing: { auto: false, maxAgents: 6, byRole: {} },
   look: { theme: 'follow', agentsLayout: 'focus', motion: 'full', names: 'nato' },
