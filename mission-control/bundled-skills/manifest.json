@@ -64,5 +64,17 @@
    "scripts/relay.mjs"
   ],
   "hash": "d06764222f5c"
+ },
+ "board-supervisor": {
+  "files": [
+   "LICENSE",
+   "SKILL.md",
+   "references/setup.md",
+   "scripts/board-cache.mjs",
+   "scripts/check-commit-msg.mjs",
+   "scripts/commit-msg.sh",
+   "scripts/setup-board.sh"
+  ],
+  "hash": "d571cdb45a0d"
  }
 }
